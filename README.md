@@ -210,4 +210,4 @@ PODACHI/
 ---
 
 ## 🔒 10. Maxfiylik
-- Hech qanday maxfiy API kalitlari yoki parollar repozitoriyga yozilmagan.  
+- Hech qanday maxfiy API kalitlari yoki parollar repozitoriyga yozilmagan.

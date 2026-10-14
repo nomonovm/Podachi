@@ -209,9 +209,5 @@ PODACHI/
 
 ---
 
-## 🔒 10. Maxfiylik va ZIP Arxiv Eslatmasi
-
-Texnik topshiriqning 19-bandiga muvofiq:
-- Hech qanday maxfiy API kalitlari yoki parollar repozitoriyga yozilmagan.
-- Loyiha to‘liq tayyor holatga keltirilgan bo‘lib, **foydalanuvchining alohida buyrug‘i berilmaguncha avtomatik ZIP arxiv yaratilmaydi**.
-- Buyruq berilganda loyiha `node_modules` va vaqtinchalik kesh fayllarisiz toza holda ZIP arxivlanadi.
+## 🔒 10. Maxfiylik
+- Hech qanday maxfiy API kalitlari yoki parollar repozitoriyga yozilmagan.  

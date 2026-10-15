@@ -1314,6 +1314,7 @@ export class PodachiBackendEngine {
     totalMilkRevenue: number;
     feedDeductions: { name: string; quantity: number; unit: string }[];
     feedReplenishments: { name: string; quantity: number; unit: string; cost: number }[];
+    vetActions: { title: string; groupInfo: string; headsTreated: number; medicine: string; cost: number; recordId: string }[];
   } {
     const today = new Date().toISOString().split('T')[0];
     const farmId = this.state.currentFarmId;
@@ -1535,6 +1536,129 @@ export class PodachiBackendEngine {
       }
     });
 
+    // 4. Veterinariya bo'yicha avtomatik profilaktik ko'rik va muolaja qaydlari (Dr. Jamshid Zokirov)
+    const vetActions: {
+      title: string;
+      groupInfo: string;
+      headsTreated: number;
+      medicine: string;
+      cost: number;
+      recordId: string;
+    }[] = [];
+
+    const vetUser = this.state.users.find(u => u.email === 'vet@podachi.uz') || {
+      full_name: 'Dr. Jamshid Zokirov (Bosh Veterinar)',
+      email: 'vet@podachi.uz',
+    };
+    const vetName = vetUser.full_name;
+    const vetEmail = vetUser.email;
+
+    farmGroups.forEach(group => {
+      const sp = group.species.toLowerCase();
+      let shouldTreat = false;
+      let title = '';
+      let recordType: VeterinaryRecord['record_type'] = 'korik';
+      let medicineName = '';
+      let dosage = '';
+      let notes = '';
+      let medicineCost = 0;
+      let headsTreated = group.current_head_count;
+
+      if (sp.includes('qoramol')) {
+        title = "Sog'in sigirlar kunlik mastit va sut gigiyenasi profilaktikasi";
+        recordType = 'korik';
+        medicineName = "Kenotik dezinfeksiya eritmasi va D-vitamin kompleksi";
+        dosage = "Sog'ishdan keyin emchak uchlariga profilaktik ishlov";
+        notes = "Umumiy klinik ko'rik o'tkazildi, elin salomatligi va sut gigiyenasi me'yorda.";
+        medicineCost = 45000;
+        shouldTreat = true;
+      } else if (sp.includes('echki')) {
+        title = "Sog'in echkilar profilaktik ko'rigi va tuyoq gigiyenasi";
+        recordType = 'korik';
+        medicineName = "Tuyoq dezinfeksiyasi uchun vanna eritmasi";
+        dosage = "Yaylovdan qaytishda profilaktik vanna";
+        notes = "Tuyoq va teri parazitlari profilaktikasi o'tkazildi, holati qoniqarli.";
+        medicineCost = 35000;
+        shouldTreat = true;
+      } else if (sp.includes('qo\'y') || sp.includes('qoy')) {
+        title = "Suruvdagi qo'ylarning mavsumiy emlash va vitaminoterapiya ko'rigi";
+        recordType = 'dori_berish';
+        medicineName = "Albendazol 10% va mineral premiks";
+        dosage = "5 ml ichirish yo'li bilan va ozuqaga qo'shish";
+        notes = "Ozuqalanish holati va umumiy immunitet mustahkamligi tekshirildi.";
+        headsTreated = Math.min(group.current_head_count, 50);
+        medicineCost = 65000;
+        shouldTreat = true;
+      } else if (sp.includes('ot')) {
+        title = "Otlarning tuyoq, nafas va mushak faolligi tekshiruvi";
+        recordType = 'korik';
+        medicineName = "Glukozali kalsiy eritmasi va tuyoq moyi";
+        dosage = "Profilaktik surtish va ko'rik";
+        notes = "Yurak-qon tomir va harakat apparati me'yorda.";
+        medicineCost = 50000;
+        shouldTreat = true;
+      }
+
+      if (shouldTreat) {
+        const nextDate = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
+        const vetRecord: VeterinaryRecord = {
+          id: 'vet-auto-' + Math.random().toString(36).substring(2, 9),
+          farm_id: farmId,
+          group_id: group.id,
+          group_info: `${group.breed} ${group.species} (${group.current_head_count} bosh)`,
+          record_type: recordType,
+          title,
+          heads_treated: headsTreated,
+          total_group_heads: group.current_head_count,
+          medicine_name: medicineName,
+          dosage,
+          veterinarian_name: vetName,
+          date: today,
+          next_checkup_date: nextDate,
+          notes,
+          status: 'bajarildi',
+          created_at: new Date().toISOString(),
+        };
+        this.state.vetRecords.unshift(vetRecord);
+
+        if (medicineCost > 0) {
+          const finExpense: FinanceRecord = {
+            id: 'fin-exp-' + Math.random().toString(36).substring(2, 9),
+            farm_id: farmId,
+            type: 'xarajat',
+            category: 'veterinariya',
+            amount_uzs: medicineCost,
+            date: today,
+            description: `Veterinariya profilaktika xarajati: ${title} (${medicineName})`,
+            linked_entity_type: 'manual',
+            linked_entity_id: vetRecord.id,
+            created_by: vetName,
+            created_at: new Date().toISOString(),
+          };
+          this.state.finances.unshift(finExpense);
+        }
+
+        this.logAudit({
+          farm_id: farmId,
+          user_name: vetName,
+          user_email: vetEmail,
+          action_type: 'HEALTH_RECORD',
+          result: 'SUCCESS',
+          resource_name: 'health_records',
+          details: `Bosh Veterinar Dr. Jamshid Zokirov qaydi: ${title} (${headsTreated} bosh, xarajat: ${medicineCost.toLocaleString()} so'm)`,
+        });
+
+        vetActions.push({
+          title,
+          groupInfo: vetRecord.group_info,
+          headsTreated,
+          medicine: medicineName,
+          cost: medicineCost,
+          recordId: vetRecord.id,
+        });
+      }
+    });
+
     try {
       localStorage.setItem('podachi_last_cycle_date', today);
     } catch (e) {}
@@ -1550,7 +1674,13 @@ export class PodachiBackendEngine {
       totalMilkRevenue,
       feedDeductions,
       feedReplenishments,
+      vetActions,
     };
+  }
+
+  public runAutomatedVeterinaryCheck(): VeterinaryRecord[] {
+    const cycle = this.processDailyFarmCycle();
+    return this.state.vetRecords.slice(0, cycle.vetActions.length);
   }
 
   // --- Finance Records ---

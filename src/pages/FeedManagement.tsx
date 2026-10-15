@@ -613,6 +613,39 @@ export const FeedManagement: React.FC = () => {
               </div>
             </div>
 
+            {/* Veterinary Care Card */}
+            <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold">
+                  🩺
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Avtomatik Veterinariya &amp; Sog'liq Nazorati</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Dr. Jamshid Zokirov (Bosh Veterinar) tomonidan o'tkazildi</p>
+                </div>
+              </div>
+              <div className="space-y-1.5 pt-2 border-t border-sky-200/60 dark:border-sky-800/40">
+                {cycleResult.vetActions && cycleResult.vetActions.length > 0 ? (
+                  cycleResult.vetActions.map((v, i) => (
+                    <div key={i} className="p-2 rounded-xl bg-white/80 dark:bg-forest-900/40 text-xs flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-white">{v.title}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{v.groupInfo} &bull; {v.medicine}</p>
+                      </div>
+                      <span className="font-bold text-rose-600 dark:text-rose-400 shrink-0 ml-2">
+                        -{v.cost.toLocaleString()} so'm
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">Veterinariya muolajasi talab etilmadi</p>
+                )}
+                <p className="text-[10px] text-sky-700 dark:text-sky-400 font-semibold mt-1">
+                  ✓ Barcha muolajalar "Veterinariya &amp; Sog'liq" jurnali va xarajatlarga avtomatik yozildi.
+                </p>
+              </div>
+            </div>
+
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setIsCycleModalOpen(false)}

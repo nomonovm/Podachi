@@ -24,6 +24,7 @@ import {
   MovementType,
   AnimalCatalogItem,
   RegisterData,
+  DailyFarmCycleSummary,
 } from '../types';
 
 import {
@@ -794,6 +795,60 @@ export class PodachiBackendEngine {
     return movement;
   }
 
+  public cancelAnimalMovement(movementId: string): void {
+    this.checkPermission(['admin', 'manager'], 'animal_movements', 'Chorva harakatini bekor qilish');
+
+    const mov = this.state.movements.find(m => m.id === movementId);
+    if (!mov) throw new Error('Harakat qaydi topilmadi.');
+
+    if (mov.is_cancelled) {
+      throw new Error('Ushbu harakat allaqachon bekor qilingan.');
+    }
+
+    const group = this.state.animalGroups.find(g => g.id === mov.group_id);
+    if (group) {
+      // Revert head count: delta was (before + delta = after), so revert by subtracting delta
+      const reverted = group.current_head_count - mov.delta_count;
+      if (reverted < 0) {
+        throw new Error(`Bekor qilib bo'lmaydi: Guruhdagi chorva soni manfiy (${reverted}) bo'lib qoladi.`);
+      }
+      group.current_head_count = reverted;
+    }
+
+    mov.is_cancelled = true;
+    mov.cancelled_at = new Date().toISOString();
+    mov.cancelled_by = this.state.currentUser.full_name;
+
+    // Eslatma: Foydalanuvchi talabiga ko'ra audit jurnaliga qo'shilmaydi
+    this.notify();
+  }
+
+  public deleteAnimalMovement(movementId: string): void {
+    // Faqat Administrator uchun (Menejer o'chira olmaydi, faqat bekor qiladi)
+    this.checkPermission(['admin'], 'animal_movements', 'Chorva harakatini o\'chirish');
+
+    const index = this.state.movements.findIndex(m => m.id === movementId);
+    if (index === -1) throw new Error('Harakat qaydi topilmadi.');
+
+    const mov = this.state.movements[index];
+
+    // Agar harakat hali bekor qilinmagan bo'lsa, o'chirilganda guruh qoldig'i avtomatik o'z holiga qaytariladi
+    if (!mov.is_cancelled) {
+      const group = this.state.animalGroups.find(g => g.id === mov.group_id);
+      if (group) {
+        const reverted = group.current_head_count - mov.delta_count;
+        if (reverted >= 0) {
+          group.current_head_count = reverted;
+        }
+      }
+    }
+
+    this.state.movements.splice(index, 1);
+
+    // Eslatma: Foydalanuvchi talabiga ko'ra audit jurnaliga qo'shilmaydi
+    this.notify();
+  }
+
   // --- Strict Marketplace & Atomic Reservation ---
   public createMarketplaceListing(data: {
     group_id: string;
@@ -1304,18 +1359,189 @@ export class PodachiBackendEngine {
     return tx;
   }
 
-  // --- Daily Farm Cycle (Sut Tushumi, Yem Sarfi va Avto-To'ldirish) ---
-  public processDailyFarmCycle(): {
-    date: string;
-    cowMilkingHeads: number;
-    goatMilkingHeads: number;
-    cowMilkLiters: number;
-    goatMilkLiters: number;
-    totalMilkRevenue: number;
-    feedDeductions: { name: string; quantity: number; unit: string }[];
-    feedReplenishments: { name: string; quantity: number; unit: string; cost: number }[];
-    vetActions: { title: string; groupInfo: string; headsTreated: number; medicine: string; cost: number; recordId: string }[];
-  } {
+  // --- Daily Farm Cycle Preview (Hisob-kitobni oldindan ko'rish, yangi yozuv yaratmaydi) ---
+  public calculateDailyFarmCyclePreview(): DailyFarmCycleSummary {
+    const today = new Date().toISOString().split('T')[0];
+    const farmId = this.state.currentFarmId;
+
+    const farmGroups = this.state.animalGroups.filter(g => g.farm_id === farmId);
+    const farmFeed = this.state.feedItems.filter(f => f.farm_id === farmId);
+
+    // 1. Qoramol va echkilarning kunlik sutini hisoblash
+    let cowMilkingHeads = 0;
+    let goatMilkingHeads = 0;
+
+    farmGroups.forEach(g => {
+      const species = g.species.toLowerCase();
+      if (species.includes('qoramol')) {
+        if (g.gender_type === 'urg\'ochi') {
+          cowMilkingHeads += g.current_head_count;
+        } else if (g.gender_type === 'aralash') {
+          cowMilkingHeads += Math.floor(g.current_head_count * 0.6);
+        }
+      } else if (species.includes('echki')) {
+        if (g.gender_type === 'urg\'ochi') {
+          goatMilkingHeads += g.current_head_count;
+        } else if (g.gender_type === 'aralash') {
+          goatMilkingHeads += Math.floor(g.current_head_count * 0.6);
+        }
+      }
+    });
+
+    const cowMilkPerHead = 20; // 20 L/kun
+    const goatMilkPerHead = 1.8; // 1.8 L/kun
+    const cowPricePerLiter = 5500; // 5,500 so'm/L
+    const goatPricePerLiter = 10000; // 10,000 so'm/L
+
+    const cowMilkLiters = Math.round(cowMilkingHeads * cowMilkPerHead);
+    const goatMilkLiters = Math.round(goatMilkingHeads * goatMilkPerHead);
+
+    const cowRevenue = cowMilkLiters * cowPricePerLiter;
+    const goatRevenue = goatMilkLiters * goatPricePerLiter;
+    const totalMilkRevenue = cowRevenue + goatRevenue;
+
+    // 2. Mavjud yemdan kunlik sarfni hisoblash
+    let totalCows = 0;
+    let totalSheep = 0;
+    let totalGoats = 0;
+    let totalHorses = 0;
+    let otherAnimals = 0;
+
+    farmGroups.forEach(g => {
+      const sp = g.species.toLowerCase();
+      if (sp.includes('qoramol')) totalCows += g.current_head_count;
+      else if (sp.includes('qo\'y') || sp.includes('qoy')) totalSheep += g.current_head_count;
+      else if (sp.includes('echki')) totalGoats += g.current_head_count;
+      else if (sp.includes('ot')) totalHorses += g.current_head_count;
+      else otherAnimals += g.current_head_count;
+    });
+
+    const totalHeads = totalCows + totalSheep + totalGoats + totalHorses + otherAnimals;
+
+    const bedaDaily = Math.round(totalCows * 0.5 + totalSheep * 0.15 + totalGoats * 0.12 + totalHorses * 0.4 + otherAnimals * 0.1);
+    const yemDailyKg = Math.round(totalCows * 4 + totalSheep * 0.6 + totalGoats * 0.4 + totalHorses * 3 + otherAnimals * 0.3);
+    const silosDailyTonna = Math.round((totalCows * 0.015) * 10) / 10;
+    const vitaminDailyQop = totalHeads > 0 ? 1 : 0;
+
+    const feedDeductions: { name: string; quantity: number; unit: string; currentStock: number }[] = [];
+
+    farmFeed.forEach(feed => {
+      let consumeQty = 0;
+      const ft = feed.feed_type;
+      const nm = feed.name.toLowerCase();
+
+      if (ft === 'xashak' || nm.includes('beda') || feed.unit === 'bog\'lam') {
+        consumeQty = bedaDaily;
+      } else if (ft === 'yem' || feed.unit === 'kg') {
+        consumeQty = yemDailyKg;
+      } else if (ft === 'silos' || feed.unit === 'tonna') {
+        consumeQty = silosDailyTonna;
+      } else if (ft === 'vitamin' || feed.unit === 'qop') {
+        consumeQty = vitaminDailyQop;
+      }
+
+      if (consumeQty > 0) {
+        feedDeductions.push({
+          name: feed.name,
+          quantity: Math.min(feed.stock_quantity, consumeQty),
+          unit: feed.unit,
+          currentStock: feed.stock_quantity,
+        });
+      }
+    });
+
+    // 3. Minimal chegaraga yetgan yemlarni avtomatik to'ldirish hisobi
+    const feedReplenishments: { name: string; quantity: number; unit: string; cost: number; currentStock: number; threshold: number }[] = [];
+
+    farmFeed.forEach(feed => {
+      const deduction = feedDeductions.find(d => d.name === feed.name)?.quantity || 0;
+      const stockAfterDeduct = feed.stock_quantity - deduction;
+
+      if (stockAfterDeduct <= feed.min_threshold) {
+        let restockQty = 0;
+        if (feed.unit === 'bog\'lam') restockQty = Math.max(500, feed.min_threshold * 3);
+        else if (feed.unit === 'kg') restockQty = Math.max(3000, feed.min_threshold * 2);
+        else if (feed.unit === 'tonna') restockQty = Math.max(10, feed.min_threshold * 2);
+        else if (feed.unit === 'qop') restockQty = Math.max(25, feed.min_threshold * 2);
+        else restockQty = Math.max(50, feed.min_threshold * 2);
+
+        const unitPrice = feed.unit_price_uzs || 30000;
+        const totalCost = restockQty * unitPrice;
+
+        feedReplenishments.push({
+          name: feed.name,
+          quantity: restockQty,
+          unit: feed.unit,
+          cost: totalCost,
+          currentStock: feed.stock_quantity,
+          threshold: feed.min_threshold,
+        });
+      }
+    });
+
+    // 4. Veterinariya bo'yicha profilaktik reja
+    const vetActions: {
+      title: string;
+      groupInfo: string;
+      headsTreated: number;
+      medicine: string;
+      cost: number;
+    }[] = [];
+
+    farmGroups.forEach(group => {
+      const sp = group.species.toLowerCase();
+      if (sp.includes('qoramol')) {
+        vetActions.push({
+          title: "Sog'in sigirlar kunlik mastit va sut gigiyenasi profilaktikasi",
+          groupInfo: `${group.breed} ${group.species} (${group.current_head_count} bosh)`,
+          headsTreated: group.current_head_count,
+          medicine: "Kenotik dezinfeksiya eritmasi va D-vitamin",
+          cost: 45000,
+        });
+      } else if (sp.includes('echki')) {
+        vetActions.push({
+          title: "Sog'in echkilar profilaktik ko'rigi va tuyoq gigiyenasi",
+          groupInfo: `${group.breed} ${group.species} (${group.current_head_count} bosh)`,
+          headsTreated: group.current_head_count,
+          medicine: "Tuyoq dezinfeksiyasi uchun vanna eritmasi",
+          cost: 35000,
+        });
+      } else if (sp.includes('qo\'y') || sp.includes('qoy')) {
+        vetActions.push({
+          title: "Suruvdagi qo'ylarning mavsumiy emlash va vitaminoterapiya ko'rigi",
+          groupInfo: `${group.breed} ${group.species} (${group.current_head_count} bosh)`,
+          headsTreated: Math.min(group.current_head_count, 50),
+          medicine: "Albendazol 10% va mineral premiks",
+          cost: 65000,
+        });
+      } else if (sp.includes('ot')) {
+        vetActions.push({
+          title: "Otlarning tuyoq, nafas va mushak faolligi tekshiruvi",
+          groupInfo: `${group.breed} ${group.species} (${group.current_head_count} bosh)`,
+          headsTreated: group.current_head_count,
+          medicine: "Glukozali kalsiy eritmasi va tuyoq moyi",
+          cost: 50000,
+        });
+      }
+    });
+
+    return {
+      date: today,
+      cowMilkingHeads,
+      goatMilkingHeads,
+      cowMilkLiters,
+      goatMilkLiters,
+      cowRevenue,
+      goatRevenue,
+      totalMilkRevenue,
+      feedDeductions,
+      feedReplenishments,
+      vetActions,
+    };
+  }
+
+  // --- Daily Farm Cycle (Sut Tushumi, Yem Sarfi va Avto-To'ldirishni Qo'llash va Qaydlarni Saqlash) ---
+  public processDailyFarmCycle(): DailyFarmCycleSummary {
     const today = new Date().toISOString().split('T')[0];
     const farmId = this.state.currentFarmId;
 
@@ -1412,7 +1638,7 @@ export class PodachiBackendEngine {
     const silosDailyTonna = Math.round((totalCows * 0.015) * 10) / 10;
     const vitaminDailyQop = totalHeads > 0 ? 1 : 0;
 
-    const feedDeductions: { name: string; quantity: number; unit: string }[] = [];
+    const feedDeductions: DailyFarmCycleSummary['feedDeductions'] = [];
 
     farmFeed.forEach(feed => {
       let consumeQty = 0;
@@ -1450,7 +1676,7 @@ export class PodachiBackendEngine {
             notes: `Kunlik rejaviy sarf (${totalHeads} bosh chorva uchun)`,
           };
           this.state.feedTransactions.unshift(tx);
-          feedDeductions.push({ name: feed.name, quantity: actualDeduct, unit: feed.unit });
+          feedDeductions.push({ name: feed.name, quantity: actualDeduct, unit: feed.unit, currentStock: next });
         }
       }
     });
@@ -1468,7 +1694,7 @@ export class PodachiBackendEngine {
     }
 
     // 3. Yem minimal chegara ogohlantirishiga (min_threshold) yetganda avtomatik sotib olish va xarajatlarga yozish
-    const feedReplenishments: { name: string; quantity: number; unit: string; cost: number }[] = [];
+    const feedReplenishments: DailyFarmCycleSummary['feedReplenishments'] = [];
 
     farmFeed.forEach(feed => {
       if (feed.stock_quantity <= feed.min_threshold) {
@@ -1532,6 +1758,8 @@ export class PodachiBackendEngine {
           quantity: restockQty,
           unit: feed.unit,
           cost: totalCost,
+          currentStock: next,
+          threshold: feed.min_threshold,
         });
       }
     });
@@ -1671,6 +1899,8 @@ export class PodachiBackendEngine {
       goatMilkingHeads,
       cowMilkLiters,
       goatMilkLiters,
+      cowRevenue,
+      goatRevenue,
       totalMilkRevenue,
       feedDeductions,
       feedReplenishments,

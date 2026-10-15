@@ -1,17 +1,27 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { History, Search, ArrowUpRight, ArrowDownRight, Layers, FileText } from 'lucide-react';
+import { backendEngine } from '../lib/backendEngine';
+import { History, Search, ArrowUpRight, ArrowDownRight, Layers, FileText, Undo2, Trash2, AlertTriangle } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
-import { MovementType } from '../types';
+import { Modal } from '../components/ui/Modal';
+import { MovementType, AnimalMovement } from '../types';
 
 export const MovementsHistory: React.FC = () => {
-  const { state, currentFarm } = useApp();
+  const { state, currentFarm, currentRole, showToast } = useApp();
   const farmId = currentFarm?.id;
 
   const movements = state.movements.filter(m => m.farm_id === farmId);
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  // Confirmation modal states
+  const [selectedMov, setSelectedMov] = useState<AnimalMovement | null>(null);
+  const [modalAction, setModalAction] = useState<'cancel' | 'delete' | null>(null);
+
+  const isAdmin = currentRole === 'admin';
+  const isManager = currentRole === 'manager';
+  const canAct = isAdmin || isManager;
 
   const movementLabels: Record<MovementType, { label: string; variant: 'emerald' | 'rose' | 'slate' | 'amber' }> = {
     initial: { label: 'Boshlang\'ich qoldiq', variant: 'slate' },
@@ -34,13 +44,31 @@ export const MovementsHistory: React.FC = () => {
     return matchesType && matchesSearch;
   });
 
+  const handleConfirmAction = () => {
+    if (!selectedMov || !modalAction) return;
+
+    try {
+      if (modalAction === 'cancel') {
+        backendEngine.cancelAnimalMovement(selectedMov.id);
+        showToast(`Harakat muvaffaqiyatli bekor qilindi. Chorva guruhi soni o'z holiga qaytarildi.`, 'success');
+      } else if (modalAction === 'delete') {
+        backendEngine.deleteAnimalMovement(selectedMov.id);
+        showToast(`Harakat qaydi butunlay o'chirildi.`, 'success');
+      }
+      setSelectedMov(null);
+      setModalAction(null);
+    } catch (err: any) {
+      showToast(err.message || 'Xatolik yuz berdi', 'error');
+    }
+  };
+
   return (
     <div className="space-y-6">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Chorva Harakati Tarixi (Audit Jurnali)</h1>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Chorva Harakati Tarixi</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Barcha kirim, chiqim, tug'ilish va sotuv operatsiyalari tranzaksiyalar asosida saqlanadi
           </p>
@@ -87,15 +115,22 @@ export const MovementsHistory: React.FC = () => {
                 <th className="py-3 px-4 text-center">Oldin / Keyin</th>
                 <th className="py-3 px-4">Sabab &amp; Izoh</th>
                 <th className="py-3 px-4">Kiritgan Shaxs</th>
+                {canAct && <th className="py-3 px-4 text-center">Amallar</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-forest-900/60">
               {filteredMovements.map(mov => {
                 const isPositive = mov.delta_count > 0;
                 const isNegative = mov.delta_count < 0;
+                const isCancelled = mov.is_cancelled;
 
                 return (
-                  <tr key={mov.id} className="hover:bg-slate-50/80 dark:hover:bg-forest-950/40 transition">
+                  <tr
+                    key={mov.id}
+                    className={`hover:bg-slate-50/80 dark:hover:bg-forest-950/40 transition ${
+                      isCancelled ? 'opacity-60 bg-slate-50/40 dark:bg-slate-900/20' : ''
+                    }`}
+                  >
                     <td className="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
                       {mov.date}
                     </td>
@@ -103,17 +138,26 @@ export const MovementsHistory: React.FC = () => {
                       {mov.species} ({mov.breed})
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
-                      <Badge
-                        size="sm"
-                        variant={movementLabels[mov.movement_type]?.variant || 'slate'}
-                      >
-                        {movementLabels[mov.movement_type]?.label || mov.movement_type}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          size="sm"
+                          variant={movementLabels[mov.movement_type]?.variant || 'slate'}
+                        >
+                          {movementLabels[mov.movement_type]?.label || mov.movement_type}
+                        </Badge>
+                        {isCancelled && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                            Bekor qilingan
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-center whitespace-nowrap">
                       <span
                         className={`inline-flex items-center gap-1 font-extrabold px-2 py-0.5 rounded-lg ${
-                          isPositive
+                          isCancelled
+                            ? 'line-through text-slate-400 bg-slate-100 dark:bg-slate-800'
+                            : isPositive
                             ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
                             : isNegative
                             ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400'
@@ -127,12 +171,54 @@ export const MovementsHistory: React.FC = () => {
                       {mov.head_count_before} &rarr; <strong className="text-slate-900 dark:text-white">{mov.head_count_after}</strong>
                     </td>
                     <td className="py-3 px-4 text-slate-700 dark:text-slate-300 max-w-xs">
-                      <p className="font-semibold">{mov.reason}</p>
+                      <p className={`font-semibold ${isCancelled ? 'line-through text-slate-400' : ''}`}>
+                        {mov.reason}
+                      </p>
                       {mov.notes && <p className="text-[11px] text-slate-500 dark:text-slate-400 italic mt-0.5">{mov.notes}</p>}
+                      {isCancelled && mov.cancelled_by && (
+                        <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
+                          Bekor qildi: {mov.cancelled_by}
+                        </p>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       {mov.created_by_name}
                     </td>
+
+                    {canAct && (
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* Bekor qilish amali (Admin va Menejer uchun) */}
+                          {!isCancelled && (
+                            <button
+                              onClick={() => {
+                                setSelectedMov(mov);
+                                setModalAction('cancel');
+                              }}
+                              className="px-2.5 py-1 rounded-lg text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
+                              title="Harakatni bekor qilish va qoldiqni tiklash"
+                            >
+                              <Undo2 className="w-3.5 h-3.5" />
+                              Bekor qilish
+                            </button>
+                          )}
+
+                          {/* O'chirish amali (Faqat Administrator uchun!) */}
+                          {isAdmin && (
+                            <button
+                              onClick={() => {
+                                setSelectedMov(mov);
+                                setModalAction('delete');
+                              }}
+                              className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-[11px] font-bold transition flex items-center justify-center shadow-xs"
+                              title="Qaydni butunlay o'chirish (Faqat Administrator)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -147,6 +233,83 @@ export const MovementsHistory: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={modalAction !== null}
+        onClose={() => {
+          setSelectedMov(null);
+          setModalAction(null);
+        }}
+        title={
+          modalAction === 'cancel'
+            ? 'Harakatni bekor qilish'
+            : "Harakat qaydini butunlay o'chirish"
+        }
+        subtitle={
+          modalAction === 'cancel'
+            ? "Chorva guruhi soni avtomatik ravishda o'z holiga qaytariladi"
+            : "Ushbu amal qaydnomani tizimdan to'liq olib tashlaydi (Faqat Administrator)"
+        }
+      >
+        {selectedMov && (
+          <div className="space-y-4">
+            <div className={`p-4 rounded-2xl border flex items-start gap-3 ${
+              modalAction === 'cancel'
+                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
+                : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200'
+            }`}>
+              <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${
+                modalAction === 'cancel' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+              }`} />
+              <div className="text-xs space-y-1">
+                <p className="font-bold">
+                  {modalAction === 'cancel' ? 'Harakatni bekor qilish tasdig\'i' : 'Qaydni to\'liq o\'chirish tasdig\'i'}
+                </p>
+                <p>
+                  <strong>Guruh:</strong> {selectedMov.species} ({selectedMov.breed})<br />
+                  <strong>Operatsiya:</strong> {movementLabels[selectedMov.movement_type]?.label} ({selectedMov.delta_count > 0 ? '+' : ''}{selectedMov.delta_count} bosh)<br />
+                  <strong>Sana:</strong> {selectedMov.date} &bull; <strong>Sabab:</strong> {selectedMov.reason}
+                </p>
+                {modalAction === 'cancel' && (
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium pt-1">
+                    ✓ Bekor qilingandan so'ng, chorva bosh sonidagi o'zgarish ({selectedMov.delta_count > 0 ? `-${selectedMov.delta_count}` : `+${Math.abs(selectedMov.delta_count)}`} bosh) guruh qoldig'iga tiklanadi.
+                  </p>
+                )}
+                {modalAction === 'delete' && (
+                  <p className="text-[11px] text-rose-800 dark:text-rose-300 font-medium pt-1">
+                    ⚠ Diqqat: Ushbu harakat qaydi ma'lumotlar bazasidan butunlay olib tashlanadi.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedMov(null);
+                  setModalAction(null);
+                }}
+                className="px-4 py-2 border border-slate-200 dark:border-forest-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-forest-900/40 transition"
+              >
+                Ortga qaytish
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                className={`px-4 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm ${
+                  modalAction === 'cancel'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                {modalAction === 'cancel' ? 'Bekor qilishni tasdiqlash' : 'O\'chirishni tasdiqlash'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
     </div>
   );

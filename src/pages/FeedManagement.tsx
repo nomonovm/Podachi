@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { backendEngine } from '../lib/backendEngine';
-import { Wheat, Plus, ArrowDown, ArrowUp, AlertTriangle, RotateCw } from 'lucide-react';
+import { Wheat, Plus, ArrowDown, ArrowUp, AlertTriangle, RotateCw, CheckCircle2 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
-import { FeedItem } from '../types';
+import { FeedItem, DailyFarmCycleSummary } from '../types';
 
 export const FeedManagement: React.FC = () => {
   const { state, currentFarm, currentRole, showToast } = useApp();
@@ -17,15 +17,27 @@ export const FeedManagement: React.FC = () => {
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [selectedFeedForTx, setSelectedFeedForTx] = useState<FeedItem | null>(null);
 
-  const [cycleResult, setCycleResult] = useState<ReturnType<typeof backendEngine.processDailyFarmCycle> | null>(null);
+  const [cyclePreview, setCyclePreview] = useState<DailyFarmCycleSummary | null>(null);
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+  const [isCycleSaved, setIsCycleSaved] = useState(false);
 
-  const handleRunDailyCycle = () => {
+  const handleOpenCycleModal = () => {
+    try {
+      const preview = backendEngine.calculateDailyFarmCyclePreview();
+      setCyclePreview(preview);
+      setIsCycleSaved(false);
+      setIsCycleModalOpen(true);
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleCommitDailyCycle = () => {
     try {
       const res = backendEngine.processDailyFarmCycle();
-      setCycleResult(res);
-      setIsCycleModalOpen(true);
-      showToast(`Kunlik sikl bajarildi: +${res.totalMilkRevenue.toLocaleString()} so'm sut tushumi qo'shildi`, 'success');
+      setCyclePreview(res);
+      setIsCycleSaved(true);
+      showToast(`Kunlik sikl qaydlari muvaffaqiyatli saqlandi! +${res.totalMilkRevenue.toLocaleString()} so'm sut tushumi qo'shildi`, 'success');
     } catch (err: any) {
       showToast(err.message, 'error');
     }
@@ -127,11 +139,11 @@ export const FeedManagement: React.FC = () => {
         {canManage && (
           <div className="flex items-center gap-2.5">
             <button
-              onClick={handleRunDailyCycle}
+              onClick={handleOpenCycleModal}
               className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
             >
               <RotateCw className="w-4 h-4 text-emerald-100" />
-              Kunlik Siklni O'tkazish
+              Kunlik Sikl & Fermerlik Hisobi
             </button>
             <button
               onClick={() => setIsAddFeedModalOpen(true)}
@@ -161,11 +173,11 @@ export const FeedManagement: React.FC = () => {
           </div>
         </div>
         <button
-          onClick={handleRunDailyCycle}
+          onClick={handleOpenCycleModal}
           className="shrink-0 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
         >
           <RotateCw className="w-3.5 h-3.5" />
-          Kunlik Siklni Yurgizish
+          Hisob-Kitobni Ko'rish
         </button>
       </div>
 
@@ -510,12 +522,23 @@ export const FeedManagement: React.FC = () => {
       <Modal
         isOpen={isCycleModalOpen}
         onClose={() => setIsCycleModalOpen(false)}
-        title="Kunlik Ferma Sikli Hisoboti"
-        subtitle={`Sana: ${cycleResult?.date || ''} | Mas'ul: Bobur Rustamov (Bosh Menejer)`}
+        title={isCycleSaved ? "Kunlik Sikl Qaydlari Saqlandi" : "Kunlik Sikl & Fermerlik Hisobi (Oldindan Ko'rish)"}
+        subtitle={
+          isCycleSaved
+            ? `Sana: ${cyclePreview?.date || ''} | Mas'ul: Bobur Rustamov (Bosh Menejer) - Saqlandi`
+            : `Sana: ${cyclePreview?.date || ''} | Qaydlarni ko'rib chiqing va 'Qayd qo'shish' tugmasini bosing`
+        }
         maxWidth="md"
       >
-        {cycleResult && (
+        {cyclePreview && (
           <div className="space-y-4">
+            {isCycleSaved && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Kunlik sikl qaydlari muvaffaqiyatli saqlandi! Sut tushumi, ozuqa sarfi, zaxira to'ldirish va veterinariya qaydlari tegishli jurnallarga yozildi.</span>
+              </div>
+            )}
+
             {/* Milk Revenue Card */}
             <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
               <div className="flex items-center justify-between mb-2">
@@ -529,25 +552,27 @@ export const FeedManagement: React.FC = () => {
                   </div>
                 </div>
                 <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400">
-                  +{cycleResult.totalMilkRevenue.toLocaleString()} so'm
+                  +{cyclePreview.totalMilkRevenue.toLocaleString()} so'm
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-emerald-200/60 dark:border-emerald-800/40">
                 <div className="bg-white/80 dark:bg-forest-900/40 p-2 rounded-xl">
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Qoramol (Sigirlar)</p>
                   <p className="font-bold text-slate-900 dark:text-white">
-                    {cycleResult.cowMilkingHeads} bosh &rarr; {cycleResult.cowMilkLiters.toLocaleString()} litr
+                    {cyclePreview.cowMilkingHeads} bosh &rarr; {cyclePreview.cowMilkLiters.toLocaleString()} litr
                   </p>
                 </div>
                 <div className="bg-white/80 dark:bg-forest-900/40 p-2 rounded-xl">
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Echki (Sog'inlar)</p>
                   <p className="font-bold text-slate-900 dark:text-white">
-                    {cycleResult.goatMilkingHeads} bosh &rarr; {cycleResult.goatMilkLiters.toLocaleString()} litr
+                    {cyclePreview.goatMilkingHeads} bosh &rarr; {cyclePreview.goatMilkLiters.toLocaleString()} litr
                   </p>
                 </div>
               </div>
               <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold mt-2">
-                ✓ Moliya jurnaliga "Sut va mahsulotlar" toifasida daromad sifatida yozildi (Menejer Bobur Rustamov).
+                {isCycleSaved
+                  ? '✓ Moliya jurnaliga "Sut va mahsulotlar" toifasida daromad sifatida yozildi (Menejer Bobur Rustamov).'
+                  : 'ℹ Qayd qo\'shilganda moliya jurnaliga daromad sifatida yoziladi.'}
               </p>
             </div>
 
@@ -559,12 +584,12 @@ export const FeedManagement: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white">Chorva Bosh Soni Bo'yicha Yem Sarfi</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Hayvonlar turi va kunlik me'yor asosida ombordan ayirildi</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Hayvonlar turi va kunlik me'yor asosida ombordan sarflanadi</p>
                 </div>
               </div>
               <div className="space-y-1.5 pt-2 border-t border-amber-200/60 dark:border-amber-800/40">
-                {cycleResult.feedDeductions.length > 0 ? (
-                  cycleResult.feedDeductions.map((f, i) => (
+                {cyclePreview.feedDeductions.length > 0 ? (
+                  cyclePreview.feedDeductions.map((f, i) => (
                     <div key={i} className="flex justify-between items-center text-xs bg-white/80 dark:bg-forest-900/40 px-3 py-1.5 rounded-xl">
                       <span className="font-semibold text-slate-700 dark:text-slate-200">{f.name}</span>
                       <span className="font-bold text-rose-600 dark:text-rose-400">-{f.quantity} {f.unit}</span>
@@ -584,17 +609,17 @@ export const FeedManagement: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white">Minimal Chegara Nazorati (Avto-To'ldirish)</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Ogohlantirish chegarasiga yetgan zaxiralar avtomatik xaridi</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Ogohlantirish chegarasiga yetgan zaxiralar xaridi</p>
                 </div>
               </div>
               <div className="pt-2 border-t border-slate-200 dark:border-forest-900/60">
-                {cycleResult.feedReplenishments.length > 0 ? (
+                {cyclePreview.feedReplenishments.length > 0 ? (
                   <div className="space-y-2">
-                    {cycleResult.feedReplenishments.map((r, i) => (
+                    {cyclePreview.feedReplenishments.map((r, i) => (
                       <div key={i} className="p-2.5 rounded-xl bg-white dark:bg-forest-950/60 border border-slate-200/80 dark:border-forest-800/40 flex justify-between items-center text-xs">
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white">{r.name}</p>
-                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400">+{r.quantity} {r.unit} zaxiraga qabul qilindi</p>
+                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400">+{r.quantity} {r.unit} zaxiraga qabul qilinadi</p>
                         </div>
                         <span className="font-extrabold text-rose-600 dark:text-rose-400">
                           -{r.cost.toLocaleString()} so'm
@@ -602,7 +627,9 @@ export const FeedManagement: React.FC = () => {
                       </div>
                     ))}
                     <p className="text-[10px] text-forest-700 dark:text-forest-400 font-semibold mt-1">
-                      ✓ Bosh Menejer (Bobur Rustamov) nomidan xarajatlarga yozildi va auditga qayd etildi.
+                      {isCycleSaved
+                        ? '✓ Bosh Menejer (Bobur Rustamov) nomidan xarajatlarga yozildi.'
+                        : 'ℹ Qayd qo\'shilganda Bosh Menejer nomidan xarajatlarga yoziladi.'}
                     </p>
                   </div>
                 ) : (
@@ -621,12 +648,12 @@ export const FeedManagement: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white">Avtomatik Veterinariya &amp; Sog'liq Nazorati</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Dr. Jamshid Zokirov (Bosh Veterinar) tomonidan o'tkazildi</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Dr. Jamshid Zokirov (Bosh Veterinar) tomonidan o'tkaziladi</p>
                 </div>
               </div>
               <div className="space-y-1.5 pt-2 border-t border-sky-200/60 dark:border-sky-800/40">
-                {cycleResult.vetActions && cycleResult.vetActions.length > 0 ? (
-                  cycleResult.vetActions.map((v, i) => (
+                {cyclePreview.vetActions && cyclePreview.vetActions.length > 0 ? (
+                  cyclePreview.vetActions.map((v, i) => (
                     <div key={i} className="p-2 rounded-xl bg-white/80 dark:bg-forest-900/40 text-xs flex justify-between items-center">
                       <div>
                         <p className="font-bold text-slate-900 dark:text-white">{v.title}</p>
@@ -641,18 +668,33 @@ export const FeedManagement: React.FC = () => {
                   <p className="text-xs text-slate-500">Veterinariya muolajasi talab etilmadi</p>
                 )}
                 <p className="text-[10px] text-sky-700 dark:text-sky-400 font-semibold mt-1">
-                  ✓ Barcha muolajalar "Veterinariya &amp; Sog'liq" jurnali va xarajatlarga avtomatik yozildi.
+                  {isCycleSaved
+                    ? '✓ Barcha muolajalar "Veterinariya & Sog\'liq" jurnali va xarajatlarga yozildi.'
+                    : 'ℹ Qayd qo\'shilganda Dr. Jamshid Zokirov nomidan kiritiladi va dori xarajati yoziladi.'}
                 </p>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-forest-900/60">
               <button
+                type="button"
                 onClick={() => setIsCycleModalOpen(false)}
-                className="px-5 py-2 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                className="px-4 py-2 border border-slate-200 dark:border-forest-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-forest-900/40 transition"
               >
-                Tushunarli
+                {isCycleSaved ? 'Yopish' : 'Bekor qilish'}
               </button>
+
+              {!isCycleSaved && (
+                <button
+                  type="button"
+                  onClick={handleCommitDailyCycle}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Qayd qo'shish
+                </button>
+              )}
             </div>
           </div>
         )}

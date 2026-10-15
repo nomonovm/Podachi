@@ -121,6 +121,23 @@ export interface AnimalMovement {
   notes?: string;
   created_by_name: string;
   created_at: string;
+  is_cancelled?: boolean;
+  cancelled_at?: string;
+  cancelled_by?: string;
+}
+
+export interface DailyFarmCycleSummary {
+  date: string;
+  cowMilkingHeads: number;
+  goatMilkingHeads: number;
+  cowMilkLiters: number;
+  goatMilkLiters: number;
+  cowRevenue: number;
+  goatRevenue: number;
+  totalMilkRevenue: number;
+  feedDeductions: { name: string; quantity: number; unit: string; currentStock: number }[];
+  feedReplenishments: { name: string; quantity: number; unit: string; cost: number; currentStock: number; threshold: number }[];
+  vetActions: { title: string; groupInfo: string; headsTreated: number; medicine: string; cost: number; recordId?: string }[];
 }
 
 export type VeterinaryRecordType = 'emlash' | 'korik' | 'muolaja' | 'dori_berish';

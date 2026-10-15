@@ -326,8 +326,15 @@ export const Finance: React.FC = () => {
                     {canManage && (
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
-                          {/* Bekor qilish amali (Admin va Menejer uchun) */}
-                          {!isCancelled ? (
+                          {/* Bekor qilish amali (Admin va Menejer uchun) - Veterinariya uchun bekor qilish taqiqlangan! */}
+                          {item.category === 'veterinariya' ? (
+                            <span
+                              className="text-[10px] text-slate-400 dark:text-slate-500 italic px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 select-none"
+                              title="Veterinariya muolajalari va dori-darmon xarajatlarini bekor qilib bo'lmaydi"
+                            >
+                              Qaytarilmas
+                            </span>
+                          ) : !isCancelled ? (
                             <button
                               onClick={() => {
                                 setSelectedFinance(item);

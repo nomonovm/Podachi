@@ -124,6 +124,9 @@ export interface AnimalMovement {
   is_cancelled?: boolean;
   cancelled_at?: string;
   cancelled_by?: string;
+  total_price_uzs?: number;
+  linked_finance_id?: string;
+  listing_id?: string;
 }
 
 export interface DailyFarmCycleSummary {

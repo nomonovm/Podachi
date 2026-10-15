@@ -169,6 +169,11 @@ export const MovementsHistory: React.FC = () => {
                       <p className={`font-semibold ${isCancelled ? 'line-through text-slate-400' : ''}`}>
                         {mov.reason}
                       </p>
+                      {mov.total_price_uzs && mov.total_price_uzs > 0 && (
+                        <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/40 inline-block mt-0.5">
+                          Tushum: {mov.total_price_uzs.toLocaleString()} so'm
+                        </span>
+                      )}
                       {mov.notes && <p className="text-[11px] text-slate-500 dark:text-slate-400 italic mt-0.5">{mov.notes}</p>}
                       {isCancelled && mov.cancelled_by && (
                         <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
@@ -242,6 +247,11 @@ export const MovementsHistory: React.FC = () => {
                 <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium pt-1">
                   ✓ Bekor qilingandan so'ng, chorva bosh sonidagi o'zgarish ({selectedMov.delta_count > 0 ? `-${selectedMov.delta_count}` : `+${Math.abs(selectedMov.delta_count)}`} bosh) guruh qoldig'iga tiklanadi.
                 </p>
+                {selectedMov.movement_type === 'sale' && (
+                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300 font-bold pt-1 border-t border-amber-200/60 dark:border-amber-800/60 mt-1">
+                    💰 Diqqat: Ushbu chorva sotuvidan kelgan daromad (foyda) ham Moliya bo'limidan avtomatik bekor qilinadi va hisob-kitoblar avvalgi holatiga qaytariladi.
+                  </p>
+                )}
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
                   ℹ Ushbu amal {isAdmin ? 'Administrator' : 'Bosh Menejer'} nomidan Audit Jurnaliga qayd etiladi.
                 </p>

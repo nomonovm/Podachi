@@ -751,6 +751,7 @@ export class PodachiBackendEngine {
     delta_count: number; // positive for in, negative for out
     reason: string;
     notes?: string;
+    total_price_uzs?: number;
   }): AnimalMovement {
     this.checkPermission(['admin', 'manager'], 'animal_movements', 'Chorva harakati qayd etish');
 
@@ -789,9 +790,29 @@ export class PodachiBackendEngine {
       date: new Date().toISOString().split('T')[0],
       reason: data.reason,
       notes: data.notes,
+      total_price_uzs: data.total_price_uzs,
       created_by_name: this.state.currentUser.full_name,
       created_at: new Date().toISOString(),
     };
+
+    // Agar to'g'ridan-to'g'ri sotuv bo'lsa va summa ko'rsatilgan bo'lsa, avtomatik Moliya daromadiga yoziladi
+    if (data.movement_type === 'sale' && data.total_price_uzs && data.total_price_uzs > 0) {
+      const revenueRecord: FinanceRecord = {
+        id: 'rev-' + Math.random().toString(36).substring(2, 9),
+        farm_id: this.state.currentFarmId,
+        type: 'daromad',
+        category: 'chorva_sotuvi',
+        amount_uzs: data.total_price_uzs,
+        date: movement.date,
+        description: `Chorva sotuvi: ${Math.abs(data.delta_count)} bosh ${group.species} (${group.breed}) - Sabab: ${data.reason}`,
+        linked_entity_type: 'marketplace_sale',
+        linked_entity_id: movement.id,
+        created_by: this.state.currentUser.full_name,
+        created_at: new Date().toISOString(),
+      };
+      movement.linked_finance_id = revenueRecord.id;
+      this.state.finances.unshift(revenueRecord);
+    }
 
     this.state.movements.push(movement);
 
@@ -800,7 +821,9 @@ export class PodachiBackendEngine {
       action_type: 'LIVESTOCK_MOVEMENT',
       result: 'SUCCESS',
       resource_name: 'animal_movements',
-      details: `Harakat (${data.movement_type}): ${data.delta_count > 0 ? '+' : ''}${data.delta_count} bosh. Yangi jami: ${after}`,
+      details: `Harakat (${data.movement_type}): ${data.delta_count > 0 ? '+' : ''}${data.delta_count} bosh. Yangi jami: ${after}${
+        data.total_price_uzs && data.total_price_uzs > 0 ? ` (Tushum: ${data.total_price_uzs.toLocaleString()} so'm)` : ''
+      }`,
     });
 
     this.notify();
@@ -817,9 +840,9 @@ export class PodachiBackendEngine {
       throw new Error('Ushbu harakat allaqachon bekor qilingan.');
     }
 
+    // 1. Guruhdagi chorva sonini dastlabki holatiga qaytarish
     const group = this.state.animalGroups.find(g => g.id === mov.group_id);
     if (group) {
-      // Revert head count: delta was (before + delta = after), so revert by subtracting delta
       const reverted = group.current_head_count - mov.delta_count;
       if (reverted < 0) {
         throw new Error(`Bekor qilib bo'lmaydi: Guruhdagi chorva soni manfiy (${reverted}) bo'lib qoladi.`);
@@ -831,6 +854,59 @@ export class PodachiBackendEngine {
     mov.cancelled_at = new Date().toISOString();
     mov.cancelled_by = this.state.currentUser.full_name;
 
+    // 2. Ushbu harakat orqali kelgan daromad (foyda) yoki xarajatni bekor qilish va balansni tiklash
+    let cancelledFinanceDetails = '';
+    const cancelFin = (fin: FinanceRecord) => {
+      if (!fin.is_cancelled) {
+        fin.is_cancelled = true;
+        fin.cancelled_at = new Date().toISOString();
+        fin.cancelled_by = this.state.currentUser.full_name;
+        cancelledFinanceDetails += ` Biriktirilgan ${fin.type === 'daromad' ? 'daromad (foyda)' : 'xarajat'}: ${fin.amount_uzs.toLocaleString()} so'm bekor qilindi va balans avvalgi holatiga qaytarildi.`;
+      }
+    };
+
+    if (mov.linked_finance_id) {
+      const fin = this.state.finances.find(f => f.id === mov.linked_finance_id);
+      if (fin) cancelFin(fin);
+    }
+
+    this.state.finances.forEach(f => {
+      if (f.linked_entity_id === mov.id) {
+        cancelFin(f);
+      }
+    });
+
+    // Agar sotuv bo'lsa va to'g'ridan-to'g'ri bog'lanmagan bo'lsa, mos keluvchi daromadni topib bekor qilish
+    if (mov.movement_type === 'sale' && !cancelledFinanceDetails) {
+      const matchingFin = this.state.finances.find(f =>
+        !f.is_cancelled &&
+        f.farm_id === mov.farm_id &&
+        f.type === 'daromad' &&
+        f.category === 'chorva_sotuvi' &&
+        (
+          (mov.listing_id && f.linked_entity_id === mov.listing_id) ||
+          (mov.reason && f.description.toLowerCase().includes(mov.reason.toLowerCase())) ||
+          f.description.includes(mov.breed) ||
+          f.date === mov.date
+        )
+      );
+      if (matchingFin) cancelFin(matchingFin);
+    }
+
+    // 3. Agar bozor e'loni orqali sotilgan bo'lsa, e'londagi qoldiqni tiklash
+    if (mov.listing_id) {
+      const listing = this.state.marketplaceListings.find(l => l.id === mov.listing_id);
+      if (listing) {
+        const heads = Math.abs(mov.delta_count);
+        listing.quantity_sold = Math.max(0, listing.quantity_sold - heads);
+        listing.remaining_quantity += heads;
+        listing.quantity_reserved = Math.min(listing.initial_quantity_for_sale, listing.quantity_reserved + heads);
+        if (listing.status === 'fully_sold') {
+          listing.status = 'active';
+        }
+      }
+    }
+
     const roleLabel = this.getRoleTitle();
 
     this.logAudit({
@@ -838,7 +914,7 @@ export class PodachiBackendEngine {
       action_type: 'LIVESTOCK_MOVEMENT',
       result: 'SUCCESS',
       resource_name: 'animal_movements',
-      details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan chorva harakati bekor qilindi: ${mov.species} (${mov.breed}) ${mov.delta_count > 0 ? '+' : ''}${mov.delta_count} bosh - '${mov.reason}'. Guruhdagi chorva soni avvalgi holatiga qaytarildi.`,
+      details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan chorva harakati bekor qilindi: ${mov.species} (${mov.breed}) ${mov.delta_count > 0 ? '+' : ''}${mov.delta_count} bosh - '${mov.reason}'. Guruhdagi chorva soni avvalgi holatiga qaytarildi.${cancelledFinanceDetails}`,
     });
 
     this.notify();
@@ -998,9 +1074,12 @@ export class PodachiBackendEngine {
     const beforeCount = group.current_head_count;
     group.current_head_count -= data.heads_sold;
 
-    // 3. Create movement record
+    // 3. Create single revenue record first so we have its ID
+    const revenueRecordId = 'rev-' + Math.random().toString(36).substring(2, 9);
+    const movementId = 'mov-' + Math.random().toString(36).substring(2, 9);
+
     const movement: AnimalMovement = {
-      id: 'mov-' + Math.random().toString(36).substring(2, 9),
+      id: movementId,
       farm_id: listing.farm_id,
       group_id: group.id,
       species: group.species,
@@ -1012,6 +1091,9 @@ export class PodachiBackendEngine {
       date: new Date().toISOString().split('T')[0],
       reason: `Bozor orqali sotuv: ${data.buyer_name} (${data.heads_sold} bosh)`,
       notes: data.notes,
+      total_price_uzs: totalRevenue,
+      listing_id: listing.id,
+      linked_finance_id: revenueRecordId,
       created_by_name: this.state.currentUser.full_name,
       created_at: new Date().toISOString(),
     };
@@ -1019,7 +1101,7 @@ export class PodachiBackendEngine {
 
     // 4. Create single revenue record (Enforcing idempotency)
     const revenueRecord: FinanceRecord = {
-      id: 'rev-' + Math.random().toString(36).substring(2, 9),
+      id: revenueRecordId,
       farm_id: listing.farm_id,
       type: 'daromad',
       category: 'chorva_sotuvi',
@@ -1027,7 +1109,7 @@ export class PodachiBackendEngine {
       date: new Date().toISOString().split('T')[0],
       description: `Bozor sotuvi: ${data.heads_sold} bosh ${listing.species} (${listing.breed}) - Xaridor: ${data.buyer_name}`,
       linked_entity_type: 'marketplace_sale',
-      linked_entity_id: listing.id,
+      linked_entity_id: movementId,
       created_by: this.state.currentUser.full_name,
       created_at: new Date().toISOString(),
     };
@@ -1992,6 +2074,10 @@ export class PodachiBackendEngine {
 
     if (record.is_cancelled) {
       throw new Error('Ushbu moliya yozuvi allaqachon bekor qilingan.');
+    }
+
+    if (record.category === 'veterinariya') {
+      throw new Error("Veterinariya xarajatlarini bekor qilib bo'lmaydi: qilingan tibbiy muolaja yoki ishlatilgan dori vositalarini ortga qaytarish imkonsiz.");
     }
 
     record.is_cancelled = true;

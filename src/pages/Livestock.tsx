@@ -44,6 +44,7 @@ export const Livestock: React.FC = () => {
   const [movementCount, setMovementCount] = useState<number>(10);
   const [movementReason, setMovementReason] = useState<string>('Bahorgi mavsumiy tug\'ilish');
   const [movementNotes, setMovementNotes] = useState<string>('');
+  const [movementTotalPrice, setMovementTotalPrice] = useState<number | ''>('');
 
   // Update breed choices when species changes
   const handleSpeciesChange = (newSpecies: string) => {
@@ -96,10 +97,12 @@ export const Livestock: React.FC = () => {
         delta_count: delta,
         reason: movementReason,
         notes: movementNotes,
+        total_price_uzs: typeof movementTotalPrice === 'number' && movementTotalPrice > 0 ? movementTotalPrice : undefined,
       });
 
       showToast(`Chorva harakati muvaffaqiyatli qayd etildi`, 'success');
       setIsMovementModalOpen(false);
+      setMovementTotalPrice('');
     } catch (err: any) {
       showToast(err.message, 'error');
     }
@@ -107,6 +110,7 @@ export const Livestock: React.FC = () => {
 
   const openMovementForGroup = (group: AnimalGroup) => {
     setSelectedGroupForMovement(group);
+    setMovementTotalPrice('');
     setIsMovementModalOpen(true);
   };
 
@@ -475,6 +479,25 @@ export const Livestock: React.FC = () => {
               className="w-full px-3 py-2 border border-slate-300 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-600 bg-white dark:bg-[#14231E] text-slate-900 dark:text-white"
             />
           </div>
+
+          {movementType === 'sale' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Jami sotuv summasi / tushum (so'm, ixtiyoriy)
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="Masalan: 12000000 (Moliya daromadlariga avtomatik qo'shish uchun)"
+                value={movementTotalPrice}
+                onChange={e => setMovementTotalPrice(e.target.value ? Number(e.target.value) : '')}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-600 bg-white dark:bg-[#14231E] text-slate-900 dark:text-white"
+              />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Kiritilsa, moliya bo'limiga "Chorva sotish" daromadi sifatida avtomatik qo'shiladi.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Sababi / Asos</label>

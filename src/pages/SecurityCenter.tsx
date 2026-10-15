@@ -102,7 +102,7 @@ export const SecurityCenter: React.FC = () => {
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forest-800/80 border border-forest-600/40 text-forest-200 text-xs font-semibold mb-3">
             <KeyRound className="w-3.5 h-3.5 text-forest-300" />
-            <span>Universitet O'quv Moduli: Kriptografik Himoya & Tarmoq Xavfsizligi</span>
+            <span>Kriptografik Himoya & Tarmoq Xavfsizligi Moduli</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             Axborot Xavfsizligi & Kriptografiya Markazi
@@ -298,7 +298,7 @@ export const SecurityCenter: React.FC = () => {
           Kriptografik Taqqoslash: Xeshlash va Shifrlash Farqlari
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Universitet imtihonida tushuntirish uchun taqqoslama jadval
+          Kriptografik usullarning taqqoslama tahlil jadvali
         </p>
 
         <div className="overflow-x-auto">

@@ -259,7 +259,7 @@ export const UserManagement: React.FC = () => {
           Ruxsatlar Matritsasi (RBAC Modeli)
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-          Universitet "Foydalanishlarni boshqarish" faniga moslashtirilgan server tekshiruvlari
+          Qat'iy ruxsatlar nazorati va server darajasidagi xavfsizlik tekshiruvlari
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

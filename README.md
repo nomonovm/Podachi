@@ -1,6 +1,6 @@
 # 🌾 PODACHI — Zamonaviy Chorvachilik Boshqaruv & Raqamli Bozor Platformasi
 
-> **Universitet yakuniy startup loyihasi** uchun ishlab chiqilgan to‘liq funksional, xavfsiz va yuqori unumdorlikka ega web-platforma.
+> **Chorvachilik fermalari va agrosanoat majmualari** uchun ishlab chiqilgan to‘liq funksional, xavfsiz va yuqori unumdorlikka ega web-platforma.
 > 
 > **Yo‘nalishlar:** Farm Management & Analytics, B2B/P2P Livestock Marketplace, Cybersecurity & Cryptography Architecture.
 
@@ -28,7 +28,7 @@ Platforma uchta asosiy ustunni birlashtiradi:
 
 ## 🔐 3. Axborot Xavfsizligi & RBAC (Ruxsatlar Nazorati)
 
-Universitetdagi **"Foydalanishlarni boshqarish"** va **"Kriptografiya usullari"** fanlari talablariga mos ravishda qat'iy xavfsizlik arxitekturasi joriy etilgan:
+Xalqaro axborot xavfsizligi va kiberhimoya standartlariga mos ravishda qat'iy xavfsizlik arxitekturasi joriy etilgan:
 
 ### 3.1. RBAC Rollar Matritsasi
 | Modul / Huquq | Administrator | Menejer | Veterinar | Kuzatuvchi (Viewer) |
@@ -48,7 +48,7 @@ Universitetdagi **"Foydalanishlarni boshqarish"** va **"Kriptografiya usullari"*
 
 ## ⚡ 4. Amaliy Kriptografiya Moduli (Web Crypto API)
 
-Xavfsizlik markazida talabalar va o‘qituvchilar uchun jonli kriptografik laboratoriya yaratilgan:
+Xavfsizlik markazida ilg'or kriptografik instrumentlar va himoya laboratoriyasi yaratilgan:
 1. **SHA-256 One-Way Hash (FIPS 180-4):**
    - Parollarni ma'lumotlar bazasida ochiq saqlamaslik tamoyili.
    - Salt (kriptografik tuz) yordamida Rainbow Table hujumlaridan himoyalanish.

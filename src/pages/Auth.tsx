@@ -275,7 +275,7 @@ export const Auth: React.FC = () => {
               <div className="pt-4 border-t border-slate-800 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Universitet Imtihoni / Demo Sinov Rollari:
+                    Demo Sinov Rollari:
                   </span>
                   <span className="text-[10px] text-forest-400 font-semibold bg-forest-950 px-2 py-0.5 rounded border border-forest-800">
                     1-Klikda to'ldirish
@@ -472,7 +472,7 @@ export const Auth: React.FC = () => {
 
       {/* Footer in Auth Screen */}
       <footer className="relative z-10 max-w-7xl w-full mx-auto px-6 py-4 text-center text-xs text-slate-500">
-        <p>© 2026 PODACHI. Universitet Startup Diplom Ishi. Barcha huquqlar himoyalangan.</p>
+        <p>© 2026 PODACHI. Barcha huquqlar himoyalangan.</p>
       </footer>
 
     </div>

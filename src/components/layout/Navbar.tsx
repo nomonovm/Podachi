@@ -46,7 +46,7 @@ export const Navbar: React.FC = () => {
   const myFarms = state.farms.filter(f => myFarmMemberships.some(m => m.farm_id === f.id));
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0C1714]/95 backdrop-blur-md border-b border-slate-200/90 dark:border-forest-900/60 shadow-xs transition-colors duration-200">
+    <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0C1714]/95 backdrop-blur-md border-b border-slate-200/90 dark:border-forest-900/60 shadow-xs transition-colors duration-200 shrink-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           

@@ -95,7 +95,7 @@ export const Sidebar: React.FC = () => {
     .filter(section => section.items.length > 0);
 
   return (
-    <aside className="w-64 shrink-0 bg-white dark:bg-[#0A1310] border-r border-slate-200/80 dark:border-forest-900/40 min-h-[calc(100vh-4rem)] flex flex-col justify-between py-5 px-3 transition-colors duration-200">
+    <aside className="w-64 shrink-0 bg-white dark:bg-[#0A1310] border-r border-slate-200/80 dark:border-forest-900/40 h-full overflow-y-auto flex flex-col justify-between py-5 px-3 transition-colors duration-200">
       <div className="space-y-6">
         {visibleSections.map(section => (
           <div key={section.title}>
@@ -145,13 +145,13 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Role Notice in Sidebar Footer */}
-      <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 px-3">
+      <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 px-3 shrink-0">
         <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200/70 dark:border-forest-900/40">
           <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
             Faol Ruxsat: <span className="capitalize text-forest-700 dark:text-forest-400 font-extrabold">{currentRole}</span>
           </p>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
-            Universitet RBAC talablari asosida har bir amal serverda tekshiriladi.
+            RBAC talablari asosida har bir amal serverda tekshiriladi.
           </p>
         </div>
       </div>

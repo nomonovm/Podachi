@@ -100,6 +100,40 @@ export function loadState(): PodachiState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return getInitialState();
     const parsed = JSON.parse(raw);
+
+    // Auto-sync missing feed purchases into finances if any exist in feedTransactions
+    if (Array.isArray(parsed.feedTransactions) && Array.isArray(parsed.finances)) {
+      parsed.feedTransactions.forEach((tx: FeedTransaction) => {
+        if (tx.transaction_type === 'incoming') {
+          const alreadyLinked = parsed.finances.some(
+            (f: FinanceRecord) =>
+              f.linked_entity_id === tx.id ||
+              (f.linked_entity_type === 'feed_purchase' && f.date === tx.date && f.description.includes(tx.feed_name))
+          );
+          if (!alreadyLinked) {
+            const feed = parsed.feedItems?.find((item: FeedItem) => item.id === tx.feed_id);
+            const cost = tx.total_cost_uzs || (feed?.unit_price_uzs ? tx.quantity * feed.unit_price_uzs : 0);
+            if (cost > 0) {
+              tx.total_cost_uzs = cost;
+              parsed.finances.unshift({
+                id: 'fin-exp-' + Math.random().toString(36).substring(2, 9),
+                farm_id: tx.farm_id,
+                type: 'xarajat',
+                category: 'yem_xashak',
+                amount_uzs: cost,
+                date: tx.date,
+                description: `Ozuqa sotib olish: ${tx.quantity} ${feed?.unit || 'birlik'} ${tx.feed_name}${tx.notes ? ` (${tx.notes})` : ''}`,
+                linked_entity_type: 'feed_purchase',
+                linked_entity_id: tx.id,
+                created_by: parsed.currentUser?.full_name || 'Boshqaruv Tizimi',
+                created_at: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      });
+    }
+
     return parsed;
   } catch (e) {
     console.error('Failed to load state from localStorage', e);
@@ -1135,6 +1169,54 @@ export class PodachiBackendEngine {
       updated_at: new Date().toISOString(),
     };
     this.state.feedItems.push(item);
+
+    const initialCost = (data.stock_quantity > 0 && data.unit_price_uzs && data.unit_price_uzs > 0)
+      ? data.stock_quantity * data.unit_price_uzs
+      : 0;
+
+    if (data.stock_quantity > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const tx: FeedTransaction = {
+        id: 'feed-tx-' + Math.random().toString(36).substring(2, 9),
+        farm_id: this.state.currentFarmId,
+        feed_id: item.id,
+        feed_name: item.name,
+        transaction_type: 'incoming',
+        quantity: data.stock_quantity,
+        previous_stock: 0,
+        new_stock: data.stock_quantity,
+        date: today,
+        notes: 'Boshlang\'ich zaxira kiritildi',
+        total_cost_uzs: initialCost > 0 ? initialCost : undefined,
+      };
+      this.state.feedTransactions.unshift(tx);
+
+      if (initialCost > 0) {
+        const finRecord: FinanceRecord = {
+          id: 'fin-exp-' + Math.random().toString(36).substring(2, 9),
+          farm_id: this.state.currentFarmId,
+          type: 'xarajat',
+          category: 'yem_xashak',
+          amount_uzs: initialCost,
+          date: today,
+          description: `Yangi ozuqa zaxirasi xaridi: ${data.stock_quantity} ${data.unit} ${data.name}`,
+          linked_entity_type: 'feed_purchase',
+          linked_entity_id: tx.id,
+          created_by: this.state.currentUser.full_name,
+          created_at: new Date().toISOString(),
+        };
+        this.state.finances.unshift(finRecord);
+      }
+    }
+
+    this.logAudit({
+      farm_id: this.state.currentFarmId,
+      action_type: 'FEED_TRANSACTION',
+      result: 'SUCCESS',
+      resource_name: 'feed_inventory',
+      details: `Yangi ozuqa qo'shildi: ${data.name} (${data.stock_quantity} ${data.unit})${initialCost > 0 ? `, xarajat: ${initialCost.toLocaleString()} so'm` : ''}`,
+    });
+
     this.notify();
     return item;
   }
@@ -1143,6 +1225,8 @@ export class PodachiBackendEngine {
     feed_id: string;
     transaction_type: 'incoming' | 'outgoing';
     quantity: number;
+    unit_price_uzs?: number;
+    total_cost_uzs?: number;
     notes?: string;
   }): FeedTransaction {
     this.checkPermission(['admin', 'manager'], 'feed_inventory', 'Ozuqa kirim/chiqim amali');
@@ -1157,6 +1241,9 @@ export class PodachiBackendEngine {
 
     if (data.transaction_type === 'incoming') {
       next = prev + data.quantity;
+      if (data.unit_price_uzs && data.unit_price_uzs > 0) {
+        feed.unit_price_uzs = data.unit_price_uzs;
+      }
     } else {
       if (data.quantity > prev) {
         throw new Error(`Sarf mavjud qoldiqdan oshishi mumkin emas! Omborda faqat ${prev} ${feed.unit} mavjud.`);
@@ -1166,6 +1253,9 @@ export class PodachiBackendEngine {
 
     feed.stock_quantity = next;
     feed.updated_at = new Date().toISOString();
+
+    const effectiveUnitPrice = data.unit_price_uzs ?? feed.unit_price_uzs ?? 0;
+    const calculatedCost = data.total_cost_uzs ?? (data.transaction_type === 'incoming' && effectiveUnitPrice > 0 ? data.quantity * effectiveUnitPrice : 0);
 
     const tx: FeedTransaction = {
       id: 'feed-tx-' + Math.random().toString(36).substring(2, 9),
@@ -1178,15 +1268,34 @@ export class PodachiBackendEngine {
       new_stock: next,
       date: new Date().toISOString().split('T')[0],
       notes: data.notes,
+      total_cost_uzs: calculatedCost > 0 ? calculatedCost : undefined,
     };
     this.state.feedTransactions.unshift(tx);
+
+    // If incoming purchase with positive cost, automatically write to finance expenses
+    if (data.transaction_type === 'incoming' && calculatedCost > 0) {
+      const finRecord: FinanceRecord = {
+        id: 'fin-exp-' + Math.random().toString(36).substring(2, 9),
+        farm_id: this.state.currentFarmId,
+        type: 'xarajat',
+        category: 'yem_xashak',
+        amount_uzs: calculatedCost,
+        date: tx.date,
+        description: `Ozuqa sotib olish: ${data.quantity} ${feed.unit} ${feed.name}${data.notes ? ` (${data.notes})` : ''}`,
+        linked_entity_type: 'feed_purchase',
+        linked_entity_id: tx.id,
+        created_by: this.state.currentUser.full_name,
+        created_at: new Date().toISOString(),
+      };
+      this.state.finances.unshift(finRecord);
+    }
 
     this.logAudit({
       farm_id: this.state.currentFarmId,
       action_type: 'FEED_TRANSACTION',
       result: 'SUCCESS',
       resource_name: 'feed_inventory',
-      details: `${feed.name}: ${data.transaction_type === 'incoming' ? '+' : '-'}${data.quantity} ${feed.unit}. Yangi qoldiq: ${next}`,
+      details: `${feed.name}: ${data.transaction_type === 'incoming' ? '+' : '-'}${data.quantity} ${feed.unit}${calculatedCost > 0 ? ` (Xarajat: ${calculatedCost.toLocaleString()} so'm)` : ''}. Yangi qoldiq: ${next}`,
     });
 
     this.notify();

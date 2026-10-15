@@ -28,12 +28,17 @@ export const FeedManagement: React.FC = () => {
   // Form states for tx
   const [txType, setTxType] = useState<'incoming' | 'outgoing'>('incoming');
   const [txQuantity, setTxQuantity] = useState<number>(50);
+  const [txUnitPrice, setTxUnitPrice] = useState<number>(30000);
   const [txNotes, setTxNotes] = useState<string>('');
 
   const canManage = ['admin', 'manager'].includes(currentRole);
 
   const handleCreateFeed = (e: React.FormEvent) => {
     e.preventDefault();
+    const initialCost = (Number(stockQuantity) > 0 && Number(unitPrice) > 0)
+      ? Number(stockQuantity) * Number(unitPrice)
+      : 0;
+
     try {
       backendEngine.addFeedItem({
         name,
@@ -44,7 +49,11 @@ export const FeedManagement: React.FC = () => {
         unit_price_uzs: Number(unitPrice) || undefined,
       });
 
-      showToast(`Yangi ozuqa qo'shildi: ${name}`, 'success');
+      if (initialCost > 0) {
+        showToast(`Yangi ozuqa qo'shildi va ${initialCost.toLocaleString()} so'm xarajatlarga yozildi`, 'success');
+      } else {
+        showToast(`Yangi ozuqa qo'shildi: ${name}`, 'success');
+      }
       setIsAddFeedModalOpen(false);
       setName('');
     } catch (err: any) {
@@ -56,15 +65,23 @@ export const FeedManagement: React.FC = () => {
     e.preventDefault();
     if (!selectedFeedForTx) return;
 
+    const calculatedCost = txType === 'incoming' ? Number(txQuantity) * Number(txUnitPrice) : 0;
+
     try {
       backendEngine.recordFeedTransaction({
         feed_id: selectedFeedForTx.id,
         transaction_type: txType,
         quantity: Number(txQuantity),
+        unit_price_uzs: txType === 'incoming' ? Number(txUnitPrice) : undefined,
+        total_cost_uzs: calculatedCost > 0 ? calculatedCost : undefined,
         notes: txNotes,
       });
 
-      showToast(`Ozuqa operatsiyasi muvaffaqiyatli saqlandi`, 'success');
+      if (txType === 'incoming' && calculatedCost > 0) {
+        showToast(`Ozuqa kirimi saqlandi va ${calculatedCost.toLocaleString()} so'm xarajatlarga yozildi`, 'success');
+      } else {
+        showToast(`Ozuqa operatsiyasi muvaffaqiyatli saqlandi`, 'success');
+      }
       setIsTxModalOpen(false);
       setTxNotes('');
     } catch (err: any) {
@@ -75,6 +92,9 @@ export const FeedManagement: React.FC = () => {
   const openTx = (item: FeedItem, type: 'incoming' | 'outgoing') => {
     setSelectedFeedForTx(item);
     setTxType(type);
+    setTxQuantity(type === 'incoming' ? 50 : Math.min(10, item.stock_quantity));
+    setTxUnitPrice(item.unit_price_uzs || 30000);
+    setTxNotes('');
     setIsTxModalOpen(true);
   };
 
@@ -188,6 +208,7 @@ export const FeedManagement: React.FC = () => {
                 <th className="py-2.5 px-3">Turi</th>
                 <th className="py-2.5 px-3 text-center">Miqdor</th>
                 <th className="py-2.5 px-3 text-center">Oldingi / Yangi Qoldiq</th>
+                <th className="py-2.5 px-3 text-right">Summa (Xarajat)</th>
                 <th className="py-2.5 px-3">Izoh</th>
               </tr>
             </thead>
@@ -208,6 +229,15 @@ export const FeedManagement: React.FC = () => {
                   </td>
                   <td className="py-2.5 px-3 text-center font-mono text-slate-600 dark:text-slate-400">
                     {tx.previous_stock} &rarr; <strong className="text-slate-900 dark:text-white">{tx.new_stock}</strong>
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-medium">
+                    {tx.total_cost_uzs ? (
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                        {tx.total_cost_uzs.toLocaleString()} so'm
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 dark:text-slate-500">-</span>
+                    )}
                   </td>
                   <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">{tx.notes || '-'}</td>
                 </tr>
@@ -306,6 +336,15 @@ export const FeedManagement: React.FC = () => {
             />
           </div>
 
+          {Number(stockQuantity) > 0 && Number(unitPrice) > 0 && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl flex justify-between items-center text-xs">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Boshlang'ich xarajat summasi:</span>
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                {(Number(stockQuantity) * Number(unitPrice)).toLocaleString()} so'm (xarajatga yoziladi)
+              </span>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-forest-900/60">
             <button
               type="button"
@@ -328,8 +367,8 @@ export const FeedManagement: React.FC = () => {
       <Modal
         isOpen={isTxModalOpen}
         onClose={() => setIsTxModalOpen(false)}
-        title={txType === 'incoming' ? "Ozuqa Kirimi (Qabul Qilish)" : "Ozuqa Sarfi (Chiqim)"}
-        subtitle={selectedFeedForTx ? `${selectedFeedForTx.name} (Qoldiq: ${selectedFeedForTx.stock_quantity} ${selectedFeedForTx.unit})` : ''}
+        title={txType === 'incoming' ? "Ozuqa Kirimi (Sotib Olish / Qabul Qilish)" : "Ozuqa Sarfi (Chiqim)"}
+        subtitle={selectedFeedForTx ? `${selectedFeedForTx.name} (Hozirgi qoldiq: ${selectedFeedForTx.stock_quantity} ${selectedFeedForTx.unit})` : ''}
         maxWidth="sm"
       >
         <form onSubmit={handleRecordTx} className="space-y-4">
@@ -352,6 +391,38 @@ export const FeedManagement: React.FC = () => {
               </p>
             )}
           </div>
+
+          {txType === 'incoming' && (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Birlik narxi (so'm / {selectedFeedForTx?.unit || 'birlik'})
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={txUnitPrice}
+                  onChange={e => setTxUnitPrice(Number(e.target.value))}
+                  placeholder="Masalan: 30000"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-forest-800/70 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-forest-600 bg-white dark:bg-[#0B1713] text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Calculated Total Expense Card */}
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl space-y-1">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-600 dark:text-slate-300 font-semibold">Hisoblangan xarajat summasi:</span>
+                  <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400">
+                    {((Number(txQuantity) || 0) * (Number(txUnitPrice) || 0)).toLocaleString()} so'm
+                  </span>
+                </div>
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                  ✓ Ushbu summa tasdiqlangach avtomatik ravishda ferma xarajatlariga ("Yem-xashak" toifasi) yoziladi.
+                </p>
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Izoh</label>

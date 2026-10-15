@@ -46,7 +46,7 @@ const ROLE_PERMITTED_TABS: Record<UserRole, NavigationTab[]> = {
     'marketplace', 'farm-join', 'farm-create',
   ],
   viewer: [
-    'dashboard', 'livestock', 'catalog', 'movements', 'veterinary',
+    'dashboard', 'livestock', 'catalog', 'movements',
     'marketplace', 'farm-join', 'farm-create',
   ],
 };

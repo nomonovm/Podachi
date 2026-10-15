@@ -50,7 +50,7 @@ export const Sidebar: React.FC = () => {
     {
       title: 'FERMA AMALIYOTLARI',
       items: [
-        { id: 'veterinary', label: 'Veterinariya & Sog\'liq', icon: Stethoscope },
+        { id: 'veterinary', label: 'Veterinariya & Sog\'liq', icon: Stethoscope, roles: ['admin', 'manager', 'veterinarian'] },
         { id: 'feed', label: 'Yem-Xashak Zaxirasi', icon: Wheat, roles: ['admin', 'manager'] },
         { id: 'finance', label: 'Moliya & Hisob-kitob', icon: Receipt, roles: ['admin', 'manager'] },
       ],

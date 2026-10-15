@@ -390,6 +390,18 @@ export class PodachiBackendEngine {
     return role || 'viewer';
   }
 
+  public getRoleTitle(role?: string): string {
+    const r = role || this.getCurrentRole();
+    const roleTitles: Record<string, string> = {
+      admin: 'Administrator',
+      manager: 'Bosh Menejer',
+      veterinarian: 'Bosh Veterinar',
+      worker: 'Chorvador',
+      watcher: 'Kuzatuvchi',
+    };
+    return roleTitles[r] || r;
+  }
+
   public checkPermission(allowedRoles: UserRole[], resourceName: string, actionName: string): void {
     const currentRole = this.getCurrentRole();
     if (!allowedRoles.includes(currentRole)) {
@@ -819,7 +831,16 @@ export class PodachiBackendEngine {
     mov.cancelled_at = new Date().toISOString();
     mov.cancelled_by = this.state.currentUser.full_name;
 
-    // Eslatma: Foydalanuvchi talabiga ko'ra audit jurnaliga qo'shilmaydi
+    const roleLabel = this.getRoleTitle();
+
+    this.logAudit({
+      farm_id: this.state.currentFarmId,
+      action_type: 'LIVESTOCK_MOVEMENT',
+      result: 'SUCCESS',
+      resource_name: 'animal_movements',
+      details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan chorva harakati bekor qilindi: ${mov.species} (${mov.breed}) ${mov.delta_count > 0 ? '+' : ''}${mov.delta_count} bosh - '${mov.reason}'. Guruhdagi chorva soni avvalgi holatiga qaytarildi.`,
+    });
+
     this.notify();
   }
 
@@ -845,7 +866,16 @@ export class PodachiBackendEngine {
 
     this.state.movements.splice(index, 1);
 
-    // Eslatma: Foydalanuvchi talabiga ko'ra audit jurnaliga qo'shilmaydi
+    const roleLabel = this.getRoleTitle();
+
+    this.logAudit({
+      farm_id: this.state.currentFarmId,
+      action_type: 'LIVESTOCK_MOVEMENT',
+      result: 'SUCCESS',
+      resource_name: 'animal_movements',
+      details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan chorva harakati butunlay o'chirildi: ${mov.species} (${mov.breed}) ${mov.delta_count > 0 ? '+' : ''}${mov.delta_count} bosh - '${mov.reason}'.`,
+    });
+
     this.notify();
   }
 
@@ -1952,6 +1982,56 @@ export class PodachiBackendEngine {
 
     this.notify();
     return record;
+  }
+
+  public cancelFinanceRecord(recordId: string): void {
+    this.checkPermission(['admin', 'manager'], 'finances', 'Moliya yozuvini bekor qilish');
+
+    const record = this.state.finances.find(f => f.id === recordId);
+    if (!record) throw new Error('Moliya yozuvi topilmadi.');
+
+    if (record.is_cancelled) {
+      throw new Error('Ushbu moliya yozuvi allaqachon bekor qilingan.');
+    }
+
+    record.is_cancelled = true;
+    record.cancelled_at = new Date().toISOString();
+    record.cancelled_by = this.state.currentUser.full_name;
+
+    const roleLabel = this.getRoleTitle();
+
+    this.logAudit({
+      farm_id: this.state.currentFarmId,
+      action_type: 'FINANCE_RECORD_CREATE',
+      result: 'SUCCESS',
+      resource_name: 'finances',
+      details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan moliya yozuvi bekor qilindi: [${record.type === 'daromad' ? 'Daromad' : 'Xarajat'}] ${record.amount_uzs.toLocaleString()} so'm ('${record.description}'). Balans avvalgi holatiga qaytarildi.`,
+    });
+
+    this.notify();
+  }
+
+  public deleteFinanceRecord(recordId: string): void {
+    // Faqat Administrator uchun (Menejer o'chira olmaydi, faqat bekor qiladi)
+    this.checkPermission(['admin'], 'finances', 'Moliya yozuvini o\'chirish');
+
+    const index = this.state.finances.findIndex(f => f.id === recordId);
+    if (index === -1) throw new Error('Moliya yozuvi topilmadi.');
+
+    const record = this.state.finances[index];
+    this.state.finances.splice(index, 1);
+
+    const roleLabel = this.getRoleTitle();
+
+    this.logAudit({
+      farm_id: this.state.currentFarmId,
+      action_type: 'FINANCE_RECORD_CREATE',
+      result: 'SUCCESS',
+      resource_name: 'finances',
+      details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan moliya yozuvi butunlay o'chirildi: [${record.type === 'daromad' ? 'Daromad' : 'Xarajat'}] ${record.amount_uzs.toLocaleString()} so'm ('${record.description}'). Balans avvalgi holatiga qaytarildi.`,
+    });
+
+    this.notify();
   }
 
   // --- User Role Management ---

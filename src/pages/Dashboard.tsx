@@ -78,10 +78,10 @@ export const Dashboard: React.FC = () => {
   const totalFreeLivestock = Math.max(0, totalLivestock - totalReservedInMarket);
 
   const totalRevenues = finances
-    .filter(f => f.type === 'daromad')
+    .filter(f => f.type === 'daromad' && !f.is_cancelled)
     .reduce((sum, f) => sum + f.amount_uzs, 0);
   const totalExpenses = finances
-    .filter(f => f.type === 'xarajat')
+    .filter(f => f.type === 'xarajat' && !f.is_cancelled)
     .reduce((sum, f) => sum + f.amount_uzs, 0);
   const financialResult = totalRevenues - totalExpenses;
 
@@ -100,7 +100,7 @@ export const Dashboard: React.FC = () => {
   // Financial overview data for Bar Chart — computed from real records
   const monthNames = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
   const monthlyAgg: Record<string, { daromad: number; xarajat: number }> = {};
-  finances.forEach(f => {
+  finances.filter(f => !f.is_cancelled).forEach(f => {
     const monthKey = f.date.substring(0, 7); // "YYYY-MM"
     if (!monthlyAgg[monthKey]) monthlyAgg[monthKey] = { daromad: 0, xarajat: 0 };
     if (f.type === 'daromad') monthlyAgg[monthKey].daromad += f.amount_uzs;

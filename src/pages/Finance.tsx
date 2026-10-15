@@ -11,6 +11,10 @@ import {
   DollarSign,
   Lock,
   Calendar,
+  Undo2,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
@@ -26,6 +30,10 @@ export const Finance: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
+  // Cancel & Delete modal state
+  const [selectedFinance, setSelectedFinance] = useState<FinanceRecord | null>(null);
+  const [financeModalAction, setFinanceModalAction] = useState<'cancel' | 'delete' | null>(null);
+
   // Form states
   const [type, setType] = useState<FinanceRecord['type']>('xarajat');
   const [category, setCategory] = useState<FinanceRecord['category']>('yem_xashak');
@@ -33,7 +41,10 @@ export const Finance: React.FC = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
 
-  const canAccess = currentRole === 'admin' || currentRole === 'manager';
+  const isAdmin = currentRole === 'admin';
+  const isManager = currentRole === 'manager';
+  const canAccess = isAdmin || isManager;
+  const canManage = isAdmin || isManager;
 
   if (!canAccess) {
     return (
@@ -53,12 +64,13 @@ export const Finance: React.FC = () => {
     );
   }
 
+  // Faol (bekor qilinmagan) yozuvlar bo'yicha jami hisob
   const totalRevenues = finances
-    .filter(f => f.type === 'daromad')
+    .filter(f => f.type === 'daromad' && !f.is_cancelled)
     .reduce((sum, f) => sum + f.amount_uzs, 0);
 
   const totalExpenses = finances
-    .filter(f => f.type === 'xarajat')
+    .filter(f => f.type === 'xarajat' && !f.is_cancelled)
     .reduce((sum, f) => sum + f.amount_uzs, 0);
 
   const financialResult = totalRevenues - totalExpenses;
@@ -82,13 +94,32 @@ export const Finance: React.FC = () => {
     }
   };
 
+  const handleConfirmAction = () => {
+    if (!selectedFinance || !financeModalAction) return;
+
+    try {
+      if (financeModalAction === 'cancel') {
+        backendEngine.cancelFinanceRecord(selectedFinance.id);
+        showToast('Moliya yozuvi bekor qilindi. Summa umumiy hisobdan chiqarilib, balans avvalgi holatiga qaytarildi va auditga yozildi', 'success');
+      } else if (financeModalAction === 'delete') {
+        backendEngine.deleteFinanceRecord(selectedFinance.id);
+        showToast('Moliya yozuvi butunlay o\'chirildi va balansdan chiqarildi', 'success');
+      }
+      setSelectedFinance(null);
+      setFinanceModalAction(null);
+    } catch (err: any) {
+      showToast(err.message || 'Xatolik yuz berdi', 'error');
+    }
+  };
+
   const handleExportCSV = () => {
-    const headers = ['Sana', 'Turi', 'Kategoriya', 'Summa (UZS)', 'Izoh', 'Kiritgan Shaxs'];
+    const headers = ['Sana', 'Turi', 'Kategoriya', 'Summa (UZS)', 'Holati', 'Izoh', 'Kiritgan Shaxs'];
     const rows = finances.map(f => [
       f.date,
       f.type,
       f.category,
       f.amount_uzs,
+      f.is_cancelled ? 'Bekor qilingan' : 'Faol',
       `"${f.description.replace(/"/g, '""')}"`,
       `"${f.created_by}"`,
     ]);
@@ -101,7 +132,19 @@ export const Finance: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('CSV hisoboti yuklab olindi', 'success');
+  };
+
+  const categoryLabels: Record<string, string> = {
+    chorva_sotuvi: 'Chorva sotish',
+    sut_mahsulotlari: 'Sut va mahsulotlar',
+    boshqa_daromad: 'Boshqa daromad',
+    yem_xashak: 'Yem-xashak',
+    veterinariya: 'Veterinariya',
+    dori_darmon: 'Dori-darmon',
+    ish_haqi: 'Xodimlar maoshi',
+    transport: 'Transport',
+    kommunal: 'Kommunal',
+    boshqa: 'Boshqa xarajat',
   };
 
   const filteredFinances = finances.filter(f => {
@@ -109,19 +152,6 @@ export const Finance: React.FC = () => {
     const matchesCategory = filterCategory === 'all' || f.category === filterCategory;
     return matchesType && matchesCategory;
   });
-
-  const categoryLabels: Record<string, string> = {
-    yem_xashak: 'Yem-xashak',
-    veterinariya: 'Veterinariya',
-    dori_darmon: 'Dori-darmon',
-    ish_haqi: 'Ish haqi',
-    transport: 'Transport',
-    kommunal: 'Kommunal',
-    boshqa: 'Boshqa xarajat',
-    chorva_sotuvi: 'Chorva sotish tushumi',
-    sut_mahsulotlari: 'Sut va mahsulotlar',
-    boshqa_daromad: 'Boshqa daromad',
-  };
 
   return (
     <div className="space-y-6">
@@ -131,63 +161,71 @@ export const Finance: React.FC = () => {
         <div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Moliya &amp; Hisob-kitob</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Daromad va xarajatlar tahlili, sotuvdan tushumlar va operatsion balans
+            Barcha daromad, xarajat, ozuqa sotib olish va chorva sotuvlarining yagona moliyaviy balansi
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 border border-slate-200 dark:border-forest-800/60 bg-white dark:bg-[#0E1A16] hover:bg-slate-50 dark:hover:bg-forest-900/50 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs"
+            className="px-4 py-2 bg-white dark:bg-[#0E1A16] border border-slate-200 dark:border-forest-800/60 hover:bg-slate-50 dark:hover:bg-forest-900/50 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs"
           >
             <Download className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            CSV yuklab olish
+            Eksport (CSV)
           </button>
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="px-4 py-2 bg-forest-800 hover:bg-forest-900 dark:bg-forest-700 dark:hover:bg-forest-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            Yozuv qo'shish
+            Yangi operatsiya
           </button>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-5 border border-slate-200/90 dark:border-forest-800/40 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Jami Daromad</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="bg-white dark:bg-[#0E1A16] p-5 rounded-2xl border border-slate-200/90 dark:border-forest-800/40 shadow-xs relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Jami Daromad</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white">{totalRevenues.toLocaleString()} so'm</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Chorva va sut mahsulotlari sotuvi</p>
+          <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 font-mono">
+            {totalRevenues.toLocaleString()} so'm
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">Chorva va sut mahsulotlari sotuvi</p>
         </div>
 
-        <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-5 border border-slate-200/90 dark:border-forest-800/40 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Jami Xarajat</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 flex items-center justify-center">
+        <div className="bg-white dark:bg-[#0E1A16] p-5 rounded-2xl border border-slate-200/90 dark:border-forest-800/40 shadow-xs relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Jami Xarajat</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 flex items-center justify-center">
               <ArrowDownRight className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white">{totalExpenses.toLocaleString()} so'm</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Yem, ish haqi, dori va boshqa</p>
+          <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 font-mono">
+            {totalExpenses.toLocaleString()} so'm
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">Yem, ish haqi, dori va boshqa</p>
         </div>
 
-        <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-5 border border-slate-200/90 dark:border-forest-800/40 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Moliyaviy Natija</span>
-            <Badge variant={financialResult >= 0 ? 'emerald' : 'rose'}>
-              {financialResult >= 0 ? 'Ijobiy balans' : 'Salbiy balans'}
-            </Badge>
+        <div className={`p-5 rounded-2xl border shadow-xs relative overflow-hidden ${
+          financialResult >= 0
+            ? 'bg-gradient-to-br from-forest-900 to-forest-950 text-white border-forest-800'
+            : 'bg-gradient-to-br from-rose-900 to-rose-950 text-white border-rose-800'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-forest-200">Sof Moliyaviy Natija</span>
+            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-forest-800/80 text-emerald-300">
+              Ijobiy balans
+            </span>
           </div>
-          <p className={`text-2xl font-black ${financialResult >= 0 ? 'text-forest-800 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
-            {financialResult > 0 ? '+' : ''}{financialResult.toLocaleString()} so'm
+          <p className="text-2xl font-black mt-2 font-mono">
+            {financialResult >= 0 ? `+${financialResult.toLocaleString()}` : financialResult.toLocaleString()} so'm
           </p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+          <p className="text-[11px] text-forest-300/80 mt-1">
             * Barcha xarajatlar to'liq hisobga olinmaguncha tasdiqlangan sof foyda hisoblanmaydi
           </p>
         </div>
@@ -195,7 +233,7 @@ export const Finance: React.FC = () => {
 
       {/* Filter Tabs */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {['all', 'daromad', 'xarajat'].map(t => (
             <button
               key={t}
@@ -224,41 +262,103 @@ export const Finance: React.FC = () => {
                 <th className="py-3 px-4">Tavsif / Asos</th>
                 <th className="py-3 px-4 text-right">Summa (UZS)</th>
                 <th className="py-3 px-4">Mas'ul</th>
+                {canManage && <th className="py-3 px-4 text-center">Amallar</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-forest-900/60">
               {filteredFinances.map(item => {
                 const isIncome = item.type === 'daromad';
+                const isCancelled = item.is_cancelled;
 
                 return (
-                  <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-forest-950/40 transition">
+                  <tr
+                    key={item.id}
+                    className={`hover:bg-slate-50/80 dark:hover:bg-forest-950/40 transition ${
+                      isCancelled ? 'opacity-60 bg-slate-50/40 dark:bg-slate-900/20' : ''
+                    }`}
+                  >
                     <td className="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
                       {item.date}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
-                      <Badge size="sm" variant={isIncome ? 'emerald' : 'rose'}>
-                        {isIncome ? 'Daromad' : 'Xarajat'}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge size="sm" variant={isIncome ? 'emerald' : 'rose'}>
+                          {isIncome ? 'Daromad' : 'Xarajat'}
+                        </Badge>
+                        {isCancelled && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                            Bekor qilingan
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                       {categoryLabels[item.category] || item.category}
                     </td>
                     <td className="py-3 px-4 text-slate-700 dark:text-slate-300 max-w-sm">
-                      <p>{item.description}</p>
+                      <p className={isCancelled ? 'line-through text-slate-400' : ''}>{item.description}</p>
                       {item.linked_entity_type === 'marketplace_sale' && (
                         <span className="text-[10px] text-forest-700 dark:text-emerald-400 bg-forest-50 dark:bg-forest-950/60 px-1.5 py-0.5 rounded font-bold inline-block mt-0.5">
                           Bozor sotuvi bilan avtomatik bog'langan
                         </span>
                       )}
+                      {isCancelled && item.cancelled_by && (
+                        <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
+                          Bekor qildi: {item.cancelled_by}
+                        </p>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right font-black font-mono text-sm whitespace-nowrap">
-                      <span className={isIncome ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-200'}>
+                      <span className={
+                        isCancelled
+                          ? 'line-through text-slate-400'
+                          : isIncome
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-slate-900 dark:text-slate-200'
+                      }>
                         {isIncome ? '+' : '-'}{item.amount_uzs.toLocaleString()} so'm
                       </span>
                     </td>
                     <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       {item.created_by}
                     </td>
+
+                    {canManage && (
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* Bekor qilish amali (Admin va Menejer uchun) */}
+                          {!isCancelled ? (
+                            <button
+                              onClick={() => {
+                                setSelectedFinance(item);
+                                setFinanceModalAction('cancel');
+                              }}
+                              className="px-2.5 py-1 rounded-lg text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
+                              title="Moliya yozuvini bekor qilish va balansni avvalgi holatga qaytarish"
+                            >
+                              <Undo2 className="w-3.5 h-3.5" />
+                              Bekor qilish
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">Bekor qilingan</span>
+                          )}
+
+                          {/* O'chirish amali (Faqat Administrator uchun!) */}
+                          {isAdmin && (
+                            <button
+                              onClick={() => {
+                                setSelectedFinance(item);
+                                setFinanceModalAction('delete');
+                              }}
+                              className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-[11px] font-bold transition flex items-center justify-center shadow-xs"
+                              title="Qaydni butunlay o'chirish (Faqat Administrator)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -271,6 +371,86 @@ export const Finance: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal for Cancel / Delete */}
+      <Modal
+        isOpen={financeModalAction !== null}
+        onClose={() => {
+          setSelectedFinance(null);
+          setFinanceModalAction(null);
+        }}
+        title={
+          financeModalAction === 'cancel'
+            ? 'Moliya yozuvini bekor qilish'
+            : "Moliya yozuvini butunlay o'chirish"
+        }
+        subtitle={
+          financeModalAction === 'cancel'
+            ? "Moliya summasi umumiy balansdan chiqariladi va avvalgi holatiga qaytariladi"
+            : "Ushbu amal yozuvni tizimdan butunlay olib tashlaydi (Faqat Administrator)"
+        }
+      >
+        {selectedFinance && (
+          <div className="space-y-4">
+            <div className={`p-4 rounded-2xl border flex items-start gap-3 ${
+              financeModalAction === 'cancel'
+                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
+                : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200'
+            }`}>
+              <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${
+                financeModalAction === 'cancel' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+              }`} />
+              <div className="text-xs space-y-1">
+                <p className="font-bold">
+                  {financeModalAction === 'cancel' ? 'Bekor qilish tasdig\'i' : 'Butunlay o\'chirish tasdig\'i'}
+                </p>
+                <p>
+                  <strong>Turi:</strong> {selectedFinance.type === 'daromad' ? 'Daromad' : 'Xarajat'} &bull; <strong>Kategoriya:</strong> {categoryLabels[selectedFinance.category] || selectedFinance.category}<br />
+                  <strong>Summa:</strong> {selectedFinance.amount_uzs.toLocaleString()} so'm &bull; <strong>Sana:</strong> {selectedFinance.date}<br />
+                  <strong>Izoh / Asos:</strong> {selectedFinance.description}
+                </p>
+                {financeModalAction === 'cancel' && (
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium pt-1">
+                    ✓ Bekor qilingandan so'ng, ushbu summa ({selectedFinance.type === 'daromad' ? 'daromadlardan' : 'xarajatlardan'}) ayirib tashlanadi va ferma moliyaviy balansi avvalgi holatiga qaytadi.
+                  </p>
+                )}
+                {financeModalAction === 'delete' && (
+                  <p className="text-[11px] text-rose-800 dark:text-rose-300 font-medium pt-1">
+                    ⚠ Diqqat: Ushbu yozuv ma'lumotlar bazasidan butunlay olib tashlanadi va umumiy balansdan chiqariladi.
+                  </p>
+                )}
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
+                  ℹ Ushbu amal {isAdmin ? 'Administrator' : 'Bosh Menejer'} ({state.currentUser.full_name}) nomidan Audit Jurnaliga qayd etiladi.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFinance(null);
+                  setFinanceModalAction(null);
+                }}
+                className="px-4 py-2 border border-slate-200 dark:border-forest-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-forest-900/40 transition"
+              >
+                Ortga qaytish
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                className={`px-4 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm ${
+                  financeModalAction === 'cancel'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                {financeModalAction === 'cancel' ? 'Bekor qilishni tasdiqlash' : 'O\'chirishni tasdiqlash'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Modal: Add Record */}
       <Modal

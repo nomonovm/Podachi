@@ -206,6 +206,9 @@ export interface FinanceRecord {
   linked_entity_id?: string;
   created_by: string;
   created_at: string;
+  is_cancelled?: boolean;
+  cancelled_at?: string;
+  cancelled_by?: string;
 }
 
 export type ListingStatus = 'draft' | 'active' | 'partially_sold' | 'fully_sold' | 'closed' | 'expired';

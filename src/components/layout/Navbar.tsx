@@ -169,14 +169,24 @@ export const Navbar: React.FC = () => {
             </button>
 
             {/* Security Indicator */}
-            <button
-              onClick={() => setActiveTab('security-center')}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition"
-              title="Kriptografiya va Xavfsizlik Markazi"
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Kriptografiya & RBAC Faol</span>
-            </button>
+            {currentRole === 'admin' ? (
+              <button
+                onClick={() => setActiveTab('security-center')}
+                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition"
+                title="Kriptografiya va Xavfsizlik Markazi"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Kriptografiya & RBAC Faol</span>
+              </button>
+            ) : (
+              <div
+                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800"
+                title="RBAC Himoyasi Faol"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>RBAC Faol</span>
+              </div>
+            )}
 
             {/* User Simulator / Role Switcher */}
             <div className="relative">

@@ -19,11 +19,14 @@ import {
   Building,
 } from 'lucide-react';
 
+import { UserRole } from '../../types';
+
 interface NavItem {
   id: NavigationTab;
   label: string;
   icon: React.ElementType;
   badge?: string;
+  roles?: UserRole[];
 }
 
 interface NavSection {
@@ -48,8 +51,8 @@ export const Sidebar: React.FC = () => {
       title: 'FERMA AMALIYOTLARI',
       items: [
         { id: 'veterinary', label: 'Veterinariya & Sog\'liq', icon: Stethoscope },
-        { id: 'feed', label: 'Yem-Xashak Zaxirasi', icon: Wheat },
-        { id: 'finance', label: 'Moliya & Hisob-kitob', icon: Receipt },
+        { id: 'feed', label: 'Yem-Xashak Zaxirasi', icon: Wheat, roles: ['admin', 'manager'] },
+        { id: 'finance', label: 'Moliya & Hisob-kitob', icon: Receipt, roles: ['admin', 'manager'] },
       ],
     },
     {
@@ -61,32 +64,40 @@ export const Sidebar: React.FC = () => {
           icon: ShoppingBag,
           badge: `${state.marketplaceListings.filter(l => l.status === 'active' || l.status === 'partially_sold').length}`,
         },
-        { id: 'my-listings', label: 'Mening E\'lonlarim', icon: Tag },
+        { id: 'my-listings', label: 'Mening E\'lonlarim', icon: Tag, roles: ['admin', 'manager'] },
       ],
     },
     {
       title: 'XAVFSIZLIK & AUDIT',
       items: [
-        { id: 'users', label: 'A\'zolar & Huquqlar (RBAC)', icon: Users },
-        { id: 'security-center', label: 'Kriptografiya Markazi', icon: KeyRound },
-        { id: 'audit-logs', label: 'Audit Jurnali', icon: ShieldAlert },
-        { id: 'security-testing', label: 'Xavfsizlik Testlari', icon: TestTube2, badge: '9 Test' },
+        { id: 'users', label: 'A\'zolar & Huquqlar (RBAC)', icon: Users, roles: ['admin'] },
+        { id: 'security-center', label: 'Kriptografiya Markazi', icon: KeyRound, roles: ['admin'] },
+        { id: 'audit-logs', label: 'Audit Jurnali', icon: ShieldAlert, roles: ['admin'] },
+        { id: 'security-testing', label: 'Xavfsizlik Testlari', icon: TestTube2, badge: '9 Test', roles: ['admin'] },
       ],
     },
     {
       title: 'SOZLAMALAR',
       items: [
-        { id: 'farm-settings', label: 'Ferma Sozlamalari', icon: Settings },
+        { id: 'farm-settings', label: 'Ferma Sozlamalari', icon: Settings, roles: ['admin'] },
         { id: 'farm-join', label: 'Fermaga Qo\'shilish', icon: UserPlus },
         { id: 'farm-create', label: 'Yangi Ferma Yaratish', icon: Building },
       ],
     },
   ];
 
+  // Filter sections and items strictly based on current role
+  const visibleSections = sections
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => !item.roles || item.roles.includes(currentRole)),
+    }))
+    .filter(section => section.items.length > 0);
+
   return (
     <aside className="w-64 shrink-0 bg-white dark:bg-[#0A1310] border-r border-slate-200/80 dark:border-forest-900/40 min-h-[calc(100vh-4rem)] flex flex-col justify-between py-5 px-3 transition-colors duration-200">
       <div className="space-y-6">
-        {sections.map(section => (
+        {visibleSections.map(section => (
           <div key={section.title}>
             <p className="px-3 text-[10px] font-extrabold text-slate-400 dark:text-slate-500 tracking-wider uppercase mb-2">
               {section.title}

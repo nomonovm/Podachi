@@ -25,8 +25,65 @@ import { FarmSettings } from './pages/FarmSettings';
 import { FarmJoin } from './pages/FarmJoin';
 import { FarmCreate } from './pages/FarmCreate';
 
+import { Lock } from 'lucide-react';
+import { UserRole } from './types';
+import { NavigationTab } from './context/AppContext';
+
+const ROLE_PERMITTED_TABS: Record<UserRole, NavigationTab[]> = {
+  admin: [
+    'dashboard', 'livestock', 'catalog', 'movements', 'veterinary',
+    'feed', 'finance', 'reports', 'marketplace', 'my-listings',
+    'users', 'security-center', 'audit-logs', 'security-testing',
+    'farm-settings', 'farm-join', 'farm-create',
+  ],
+  manager: [
+    'dashboard', 'livestock', 'catalog', 'movements', 'veterinary',
+    'feed', 'finance', 'reports', 'marketplace', 'my-listings',
+    'farm-join', 'farm-create',
+  ],
+  veterinarian: [
+    'dashboard', 'livestock', 'catalog', 'movements', 'veterinary',
+    'marketplace', 'farm-join', 'farm-create',
+  ],
+  viewer: [
+    'dashboard', 'livestock', 'catalog', 'movements', 'veterinary',
+    'marketplace', 'farm-join', 'farm-create',
+  ],
+};
+
 const MainContent: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, setActiveTab, currentRole } = useApp();
+
+  const isPermitted = ROLE_PERMITTED_TABS[currentRole]?.includes(activeTab);
+
+  React.useEffect(() => {
+    if (!isPermitted) {
+      setActiveTab('dashboard');
+    }
+  }, [currentRole, isPermitted, setActiveTab]);
+
+  if (!isPermitted) {
+    return (
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
+        <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-10 text-center border border-slate-200 dark:border-forest-800/40 max-w-lg mx-auto mt-12 shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-4 border border-rose-100 dark:border-rose-900/50">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Kirish Huquqi Cheklangan (RBAC)</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+            Sizning faol rolingiz: <strong className="capitalize text-slate-900 dark:text-white">{currentRole}</strong>.<br />
+            Ushbu bo'limga kirish faqat tegishli vakolatga ega foydalanuvchilar uchun ruxsat etilgan.
+          </p>
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className="px-5 py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-bold transition shadow-sm"
+          >
+            Boshqaruv paneliga qaytish
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   const renderContent = () => {
     switch (activeTab) {

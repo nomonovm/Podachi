@@ -139,8 +139,8 @@ export const Auth: React.FC = () => {
       {/* Top Navbar in Auth Screen */}
       <header className="relative z-10 max-w-7xl w-full mx-auto px-6 py-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-lg border border-forest-500/30">
-            <img src="/logo.svg" alt="Podachi" className="w-full h-full object-cover" />
+          <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-lg border border-forest-500/30 bg-[#F9F8F4] flex items-center justify-center">
+            <img src="/logo.png" alt="Podachi" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="flex items-center gap-2">

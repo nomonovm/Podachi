@@ -56,8 +56,8 @@ export const Navbar: React.FC = () => {
               onClick={() => setActiveTab('dashboard')}
               className="flex items-center gap-3 text-left focus:outline-none group"
             >
-              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-forest-700/20 group-hover:scale-105 transition-transform">
-                <img src="/logo.svg" alt="Podachi Logo" className="w-full h-full object-cover" />
+              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-forest-700/20 bg-[#F9F8F4] group-hover:scale-105 transition-transform flex items-center justify-center">
+                <img src="/logo.png" alt="Podachi Logo" className="w-full h-full object-cover" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">

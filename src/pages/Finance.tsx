@@ -350,15 +350,15 @@ export const Finance: React.FC = () => {
                             <span className="text-[11px] text-slate-400 italic">Bekor qilingan</span>
                           )}
 
-                          {/* O'chirish amali (Faqat Administrator uchun!) */}
-                          {isAdmin && (
+                          {/* O'chirish amali (Faqat Administrator uchun va FAQATGINA bekor qilingan yozuvlar uchun!) */}
+                          {isAdmin && isCancelled && (
                             <button
                               onClick={() => {
                                 setSelectedFinance(item);
                                 setFinanceModalAction('delete');
                               }}
                               className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-[11px] font-bold transition flex items-center justify-center shadow-xs"
-                              title="Qaydni butunlay o'chirish (Faqat Administrator)"
+                              title="Bekor qilingan qaydni butunlay o'chirish (Faqat Administrator)"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

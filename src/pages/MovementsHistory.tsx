@@ -18,6 +18,7 @@ export const MovementsHistory: React.FC = () => {
   // Confirmation modal state
   const [selectedMov, setSelectedMov] = useState<AnimalMovement | null>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [movementModalAction, setMovementModalAction] = useState<'cancel' | 'delete'>('cancel');
 
   const isAdmin = currentRole === 'admin';
   const isManager = currentRole === 'manager';
@@ -44,12 +45,17 @@ export const MovementsHistory: React.FC = () => {
     return matchesType && matchesSearch;
   });
 
-  const handleConfirmCancel = () => {
+  const handleConfirmAction = () => {
     if (!selectedMov) return;
 
     try {
-      backendEngine.cancelAnimalMovement(selectedMov.id);
-      showToast(`Harakat muvaffaqiyatli bekor qilindi. Chorva guruhi soni o'z holiga qaytarildi va audit jurnaliga yozildi.`, 'success');
+      if (movementModalAction === 'cancel') {
+        backendEngine.cancelAnimalMovement(selectedMov.id);
+        showToast(`Harakat muvaffaqiyatli bekor qilindi. Chorva guruhi soni o'z holiga qaytarildi va audit jurnaliga yozildi.`, 'success');
+      } else {
+        backendEngine.deleteAnimalMovement(selectedMov.id);
+        showToast(`Bekor qilingan harakat qaydi butunlay o'chirildi va audit jurnaliga yozildi.`, 'success');
+      }
       setSelectedMov(null);
       setIsCancelModalOpen(false);
     } catch (err: any) {
@@ -187,11 +193,12 @@ export const MovementsHistory: React.FC = () => {
 
                     {canAct && (
                       <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center">
+                        <div className="flex items-center justify-center gap-1.5">
                           {!isCancelled ? (
                             <button
                               onClick={() => {
                                 setSelectedMov(mov);
+                                setMovementModalAction('cancel');
                                 setIsCancelModalOpen(true);
                               }}
                               className="px-2.5 py-1 rounded-lg text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
@@ -202,6 +209,21 @@ export const MovementsHistory: React.FC = () => {
                             </button>
                           ) : (
                             <span className="text-[11px] text-slate-400 italic">Bekor qilingan</span>
+                          )}
+
+                          {/* O'chirish amali (Faqat Administrator uchun va FAQATGINA bekor qilingan harakatlarda!) */}
+                          {isAdmin && isCancelled && (
+                            <button
+                              onClick={() => {
+                                setSelectedMov(mov);
+                                setMovementModalAction('delete');
+                                setIsCancelModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-[11px] font-bold transition flex items-center justify-center shadow-xs"
+                              title="Bekor qilingan harakatni butunlay o'chirish (Faqat Administrator)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
                       </td>
@@ -228,35 +250,61 @@ export const MovementsHistory: React.FC = () => {
           setSelectedMov(null);
           setIsCancelModalOpen(false);
         }}
-        title="Harakatni bekor qilish"
-        subtitle="Chorva guruhi soni avtomatik ravishda o'z holiga qaytariladi va auditga qayd etiladi"
+        title={movementModalAction === 'delete' ? "Harakat qaydini butunlay o'chirish" : "Harakatni bekor qilish"}
+        subtitle={
+          movementModalAction === 'delete'
+            ? "Ushbu bekor qilingan yozuv tizimdan butunlay o'chiriladi"
+            : "Chorva guruhi soni avtomatik ravishda o'z holiga qaytariladi va auditga qayd etiladi"
+        }
       >
         {selectedMov && (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl border flex items-start gap-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200">
-              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-              <div className="text-xs space-y-1">
-                <p className="font-bold">
-                  Harakatni bekor qilish tasdig'i
-                </p>
-                <p>
-                  <strong>Guruh:</strong> {selectedMov.species} ({selectedMov.breed})<br />
-                  <strong>Operatsiya:</strong> {movementLabels[selectedMov.movement_type]?.label} ({selectedMov.delta_count > 0 ? '+' : ''}{selectedMov.delta_count} bosh)<br />
-                  <strong>Sana:</strong> {selectedMov.date} &bull; <strong>Sabab:</strong> {selectedMov.reason}
-                </p>
-                <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium pt-1">
-                  ✓ Bekor qilingandan so'ng, chorva bosh sonidagi o'zgarish ({selectedMov.delta_count > 0 ? `-${selectedMov.delta_count}` : `+${Math.abs(selectedMov.delta_count)}`} bosh) guruh qoldig'iga tiklanadi.
-                </p>
-                {selectedMov.movement_type === 'sale' && (
-                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300 font-bold pt-1 border-t border-amber-200/60 dark:border-amber-800/60 mt-1">
-                    💰 Diqqat: Ushbu chorva sotuvidan kelgan daromad (foyda) ham Moliya bo'limidan avtomatik bekor qilinadi va hisob-kitoblar avvalgi holatiga qaytariladi.
+            {movementModalAction === 'delete' ? (
+              <div className="p-4 rounded-2xl border flex items-start gap-3 bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200">
+                <Trash2 className="w-5 h-5 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+                <div className="text-xs space-y-1">
+                  <p className="font-bold">
+                    Harakat qaydini butunlay o'chirish tasdig'i
                   </p>
-                )}
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
-                  ℹ Ushbu amal {isAdmin ? 'Administrator' : 'Bosh Menejer'} nomidan Audit Jurnaliga qayd etiladi.
-                </p>
+                  <p>
+                    <strong>Guruh:</strong> {selectedMov.species} ({selectedMov.breed})<br />
+                    <strong>Operatsiya:</strong> {movementLabels[selectedMov.movement_type]?.label} ({selectedMov.delta_count > 0 ? '+' : ''}{selectedMov.delta_count} bosh)<br />
+                    <strong>Sana:</strong> {selectedMov.date} &bull; <strong>Sabab:</strong> {selectedMov.reason}
+                  </p>
+                  <p className="text-[11px] text-rose-700 dark:text-rose-300 font-medium pt-1">
+                    ⚠ Diqqat: Ushbu bekor qilingan yozuv ro'yxatdan butunlay o'chiriladi.
+                  </p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
+                    ℹ Ushbu amal Administrator ({state.currentUser.full_name}) nomidan Audit Jurnaliga qayd etiladi.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 rounded-2xl border flex items-start gap-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <div className="text-xs space-y-1">
+                  <p className="font-bold">
+                    Harakatni bekor qilish tasdig'i
+                  </p>
+                  <p>
+                    <strong>Guruh:</strong> {selectedMov.species} ({selectedMov.breed})<br />
+                    <strong>Operatsiya:</strong> {movementLabels[selectedMov.movement_type]?.label} ({selectedMov.delta_count > 0 ? '+' : ''}{selectedMov.delta_count} bosh)<br />
+                    <strong>Sana:</strong> {selectedMov.date} &bull; <strong>Sabab:</strong> {selectedMov.reason}
+                  </p>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium pt-1">
+                    ✓ Bekor qilingandan so'ng, chorva bosh sonidagi o'zgarish ({selectedMov.delta_count > 0 ? `-${selectedMov.delta_count}` : `+${Math.abs(selectedMov.delta_count)}`} bosh) guruh qoldig'iga tiklanadi.
+                  </p>
+                  {selectedMov.movement_type === 'sale' && (
+                    <p className="text-[11px] text-emerald-800 dark:text-emerald-300 font-bold pt-1 border-t border-amber-200/60 dark:border-amber-800/60 mt-1">
+                      💰 Diqqat: Ushbu chorva sotuvidan kelgan daromad (foyda) ham Moliya bo'limidan avtomatik bekor qilinadi va hisob-kitoblar avvalgi holatiga qaytariladi.
+                    </p>
+                  )}
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
+                    ℹ Ushbu amal {isAdmin ? 'Administrator' : 'Bosh Menejer'} nomidan Audit Jurnaliga qayd etiladi.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 pt-2">
               <button
@@ -271,10 +319,14 @@ export const MovementsHistory: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={handleConfirmCancel}
-                className="px-4 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm bg-amber-600 hover:bg-amber-700"
+                onClick={handleConfirmAction}
+                className={`px-4 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm ${
+                  movementModalAction === 'delete'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
               >
-                Bekor qilishni tasdiqlash
+                {movementModalAction === 'delete' ? "Qaydni o'chirish" : 'Bekor qilishni tasdiqlash'}
               </button>
             </div>
           </div>

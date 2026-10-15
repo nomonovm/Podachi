@@ -921,23 +921,15 @@ export class PodachiBackendEngine {
   }
 
   public deleteAnimalMovement(movementId: string): void {
-    // Faqat Administrator uchun (Menejer o'chira olmaydi, faqat bekor qiladi)
+    // Faqat Administrator uchun va FAQATGINA bekor qilingan harakatlar uchun!
     this.checkPermission(['admin'], 'animal_movements', 'Chorva harakatini o\'chirish');
 
     const index = this.state.movements.findIndex(m => m.id === movementId);
     if (index === -1) throw new Error('Harakat qaydi topilmadi.');
 
     const mov = this.state.movements[index];
-
-    // Agar harakat hali bekor qilinmagan bo'lsa, o'chirilganda guruh qoldig'i avtomatik o'z holiga qaytariladi
     if (!mov.is_cancelled) {
-      const group = this.state.animalGroups.find(g => g.id === mov.group_id);
-      if (group) {
-        const reverted = group.current_head_count - mov.delta_count;
-        if (reverted >= 0) {
-          group.current_head_count = reverted;
-        }
-      }
+      throw new Error("Faqat bekor qilingan harakat qaydlarini butunlay o'chirish mumkin. Avval ushbu harakatni bekor qiling.");
     }
 
     this.state.movements.splice(index, 1);
@@ -2098,13 +2090,17 @@ export class PodachiBackendEngine {
   }
 
   public deleteFinanceRecord(recordId: string): void {
-    // Faqat Administrator uchun (Menejer o'chira olmaydi, faqat bekor qiladi)
+    // Faqat Administrator uchun va FAQATGINA bekor qilingan yozuvlar uchun!
     this.checkPermission(['admin'], 'finances', 'Moliya yozuvini o\'chirish');
 
     const index = this.state.finances.findIndex(f => f.id === recordId);
     if (index === -1) throw new Error('Moliya yozuvi topilmadi.');
 
     const record = this.state.finances[index];
+    if (!record.is_cancelled) {
+      throw new Error("Faqat bekor qilingan moliya yozuvlarini butunlay o'chirish mumkin. Avval yozuvni bekor qiling.");
+    }
+
     this.state.finances.splice(index, 1);
 
     const roleLabel = this.getRoleTitle();
@@ -2114,7 +2110,7 @@ export class PodachiBackendEngine {
       action_type: 'FINANCE_RECORD_CREATE',
       result: 'SUCCESS',
       resource_name: 'finances',
-      details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan moliya yozuvi butunlay o'chirildi: [${record.type === 'daromad' ? 'Daromad' : 'Xarajat'}] ${record.amount_uzs.toLocaleString()} so'm ('${record.description}'). Balans avvalgi holatiga qaytarildi.`,
+      details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan bekor qilingan moliya yozuvi butunlay o'chirildi: [${record.type === 'daromad' ? 'Daromad' : 'Xarajat'}] ${record.amount_uzs.toLocaleString()} so'm ('${record.description}').`,
     });
 
     this.notify();

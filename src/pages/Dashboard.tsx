@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { backendEngine } from '../lib/backendEngine';
+import { Modal } from '../components/ui/Modal';
 import {
   Layers,
   ShoppingBag,
@@ -9,6 +11,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Calendar,
+  RotateCw,
 } from 'lucide-react';
 import { StatCard } from '../components/ui/StatCard';
 import { Badge } from '../components/ui/Badge';
@@ -26,7 +29,21 @@ import {
 } from 'recharts';
 
 export const Dashboard: React.FC = () => {
-  const { state, currentFarm, setActiveTab, isDarkMode } = useApp();
+  const { state, currentFarm, setActiveTab, isDarkMode, showToast } = useApp();
+
+  const [cycleResult, setCycleResult] = useState<ReturnType<typeof backendEngine.processDailyFarmCycle> | null>(null);
+  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+
+  const handleRunDailyCycle = () => {
+    try {
+      const res = backendEngine.processDailyFarmCycle();
+      setCycleResult(res);
+      setIsCycleModalOpen(true);
+      showToast(`Kunlik sikl bajarildi: +${res.totalMilkRevenue.toLocaleString()} so'm sut tushumi qo'shildi`, 'success');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
 
   const farmId = currentFarm?.id;
 
@@ -112,6 +129,13 @@ export const Dashboard: React.FC = () => {
             >
               <ShoppingBag className="w-4 h-4 text-forest-300" />
               Bozor e'lonlari
+            </button>
+            <button
+              onClick={handleRunDailyCycle}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm border border-emerald-500/50"
+            >
+              <RotateCw className="w-4 h-4 text-emerald-100" />
+              Kunlik Sikl: Sut & Yem Nazorati
             </button>
           </div>
         </div>
@@ -347,6 +371,125 @@ export const Dashboard: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Daily Farm Cycle Summary Modal */}
+      <Modal
+        isOpen={isCycleModalOpen}
+        onClose={() => setIsCycleModalOpen(false)}
+        title="Kunlik Ferma Sikli Hisoboti"
+        subtitle={`Sana: ${cycleResult?.date || ''} | Mas'ul: Bobur Rustamov (Bosh Menejer)`}
+        maxWidth="md"
+      >
+        {cycleResult && (
+          <div className="space-y-4">
+            {/* Milk Revenue Card */}
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                    🥛
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Kunlik Sut Mahsuldorligi & Daromad</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Sog'in sigir va echkilar hisobi</p>
+                  </div>
+                </div>
+                <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400">
+                  +{cycleResult.totalMilkRevenue.toLocaleString()} so'm
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-emerald-200/60 dark:border-emerald-800/40">
+                <div className="bg-white/80 dark:bg-forest-900/40 p-2 rounded-xl">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Qoramol (Sigirlar)</p>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {cycleResult.cowMilkingHeads} bosh &rarr; {cycleResult.cowMilkLiters.toLocaleString()} litr
+                  </p>
+                </div>
+                <div className="bg-white/80 dark:bg-forest-900/40 p-2 rounded-xl">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Echki (Sog'inlar)</p>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {cycleResult.goatMilkingHeads} bosh &rarr; {cycleResult.goatMilkLiters.toLocaleString()} litr
+                  </p>
+                </div>
+              </div>
+              <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold mt-2">
+                ✓ Moliya jurnaliga "Sut va mahsulotlar" toifasida daromad sifatida yozildi (Menejer Bobur Rustamov).
+              </p>
+            </div>
+
+            {/* Feed Consumption Card */}
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold">
+                  🌾
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Chorva Bosh Soni Bo'yicha Yem Sarfi</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Hayvonlar turi va kunlik me'yor asosida ombordan ayirildi</p>
+                </div>
+              </div>
+              <div className="space-y-1.5 pt-2 border-t border-amber-200/60 dark:border-amber-800/40">
+                {cycleResult.feedDeductions.length > 0 ? (
+                  cycleResult.feedDeductions.map((f, i) => (
+                    <div key={i} className="flex justify-between items-center text-xs bg-white/80 dark:bg-forest-900/40 px-3 py-1.5 rounded-xl">
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{f.name}</span>
+                      <span className="font-bold text-rose-600 dark:text-rose-400">-{f.quantity} {f.unit}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">Ozuqa sarfi qayd etilmadi</p>
+                )}
+              </div>
+            </div>
+
+            {/* Replenishment Card (if any low stock bought) */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-forest-800/60">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-forest-800 text-white flex items-center justify-center font-bold">
+                  🛒
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Minimal Chegara Nazorati (Avto-To'ldirish)</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Ogohlantirish chegarasiga yetgan zaxiralar avtomatik xaridi</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-slate-200 dark:border-forest-900/60">
+                {cycleResult.feedReplenishments.length > 0 ? (
+                  <div className="space-y-2">
+                    {cycleResult.feedReplenishments.map((r, i) => (
+                      <div key={i} className="p-2.5 rounded-xl bg-white dark:bg-forest-950/60 border border-slate-200/80 dark:border-forest-800/40 flex justify-between items-center text-xs">
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-white">{r.name}</p>
+                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400">+{r.quantity} {r.unit} zaxiraga qabul qilindi</p>
+                        </div>
+                        <span className="font-extrabold text-rose-600 dark:text-rose-400">
+                          -{r.cost.toLocaleString()} so'm
+                        </span>
+                      </div>
+                    ))}
+                    <p className="text-[10px] text-forest-700 dark:text-forest-400 font-semibold mt-1">
+                      ✓ Bosh Menejer (Bobur Rustamov) nomidan xarajatlarga yozildi va auditga qayd etildi.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 py-1">
+                    ✓ Barcha ozuqa zaxiralari minimal me'yorda. Avtomatik xarid talab etilmadi.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsCycleModalOpen(false)}
+                className="px-5 py-2 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                Tushunarli
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
     </div>
   );

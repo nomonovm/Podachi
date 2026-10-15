@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { backendEngine } from '../lib/backendEngine';
-import { Wheat, Plus, ArrowDown, ArrowUp, AlertTriangle } from 'lucide-react';
+import { Wheat, Plus, ArrowDown, ArrowUp, AlertTriangle, RotateCw } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { FeedItem } from '../types';
@@ -16,6 +16,20 @@ export const FeedManagement: React.FC = () => {
   const [isAddFeedModalOpen, setIsAddFeedModalOpen] = useState(false);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [selectedFeedForTx, setSelectedFeedForTx] = useState<FeedItem | null>(null);
+
+  const [cycleResult, setCycleResult] = useState<ReturnType<typeof backendEngine.processDailyFarmCycle> | null>(null);
+  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+
+  const handleRunDailyCycle = () => {
+    try {
+      const res = backendEngine.processDailyFarmCycle();
+      setCycleResult(res);
+      setIsCycleModalOpen(true);
+      showToast(`Kunlik sikl bajarildi: +${res.totalMilkRevenue.toLocaleString()} so'm sut tushumi qo'shildi`, 'success');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
 
   // Form states for new feed item
   const [name, setName] = useState('');
@@ -111,14 +125,48 @@ export const FeedManagement: React.FC = () => {
         </div>
 
         {canManage && (
-          <button
-            onClick={() => setIsAddFeedModalOpen(true)}
-            className="px-4 py-2 bg-forest-800 hover:bg-forest-900 dark:bg-forest-700 dark:hover:bg-forest-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Yangi ozuqa qo'shish
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleRunDailyCycle}
+              className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+              <RotateCw className="w-4 h-4 text-emerald-100" />
+              Kunlik Siklni O'tkazish
+            </button>
+            <button
+              onClick={() => setIsAddFeedModalOpen(true)}
+              className="px-4 py-2 bg-forest-800 hover:bg-forest-900 dark:bg-forest-700 dark:hover:bg-forest-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Yangi ozuqa qo'shish
+            </button>
+          </div>
         )}
+      </div>
+
+      {/* Manager Automation Info Banner */}
+      <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0">
+            <Wheat className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">Avtomatik Ozuqa &amp; Sut Nazorati</span>
+              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200">Faol</span>
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+              Qoramol va echkilarning kunlik suti daromadga, kunlik ozuqa sarfi esa ombordan ayirib boriladi. Minimal chegara ogohlantirishida Bosh Menejer (Bobur Rustamov) nomidan avtomatik xarid qayd etiladi.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleRunDailyCycle}
+          className="shrink-0 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+        >
+          <RotateCw className="w-3.5 h-3.5" />
+          Kunlik Siklni Yurgizish
+        </button>
       </div>
 
       {/* Feed Cards Grid */}
@@ -456,6 +504,125 @@ export const FeedManagement: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Daily Farm Cycle Summary Modal */}
+      <Modal
+        isOpen={isCycleModalOpen}
+        onClose={() => setIsCycleModalOpen(false)}
+        title="Kunlik Ferma Sikli Hisoboti"
+        subtitle={`Sana: ${cycleResult?.date || ''} | Mas'ul: Bobur Rustamov (Bosh Menejer)`}
+        maxWidth="md"
+      >
+        {cycleResult && (
+          <div className="space-y-4">
+            {/* Milk Revenue Card */}
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                    🥛
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Kunlik Sut Mahsuldorligi &amp; Daromad</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Sog'in sigir va echkilar hisobi</p>
+                  </div>
+                </div>
+                <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400">
+                  +{cycleResult.totalMilkRevenue.toLocaleString()} so'm
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-emerald-200/60 dark:border-emerald-800/40">
+                <div className="bg-white/80 dark:bg-forest-900/40 p-2 rounded-xl">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Qoramol (Sigirlar)</p>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {cycleResult.cowMilkingHeads} bosh &rarr; {cycleResult.cowMilkLiters.toLocaleString()} litr
+                  </p>
+                </div>
+                <div className="bg-white/80 dark:bg-forest-900/40 p-2 rounded-xl">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Echki (Sog'inlar)</p>
+                  <p className="font-bold text-slate-900 dark:text-white">
+                    {cycleResult.goatMilkingHeads} bosh &rarr; {cycleResult.goatMilkLiters.toLocaleString()} litr
+                  </p>
+                </div>
+              </div>
+              <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold mt-2">
+                ✓ Moliya jurnaliga "Sut va mahsulotlar" toifasida daromad sifatida yozildi (Menejer Bobur Rustamov).
+              </p>
+            </div>
+
+            {/* Feed Consumption Card */}
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold">
+                  🌾
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Chorva Bosh Soni Bo'yicha Yem Sarfi</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Hayvonlar turi va kunlik me'yor asosida ombordan ayirildi</p>
+                </div>
+              </div>
+              <div className="space-y-1.5 pt-2 border-t border-amber-200/60 dark:border-amber-800/40">
+                {cycleResult.feedDeductions.length > 0 ? (
+                  cycleResult.feedDeductions.map((f, i) => (
+                    <div key={i} className="flex justify-between items-center text-xs bg-white/80 dark:bg-forest-900/40 px-3 py-1.5 rounded-xl">
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{f.name}</span>
+                      <span className="font-bold text-rose-600 dark:text-rose-400">-{f.quantity} {f.unit}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">Ozuqa sarfi qayd etilmadi</p>
+                )}
+              </div>
+            </div>
+
+            {/* Replenishment Card (if any low stock bought) */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-forest-800/60">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-forest-800 text-white flex items-center justify-center font-bold">
+                  🛒
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Minimal Chegara Nazorati (Avto-To'ldirish)</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Ogohlantirish chegarasiga yetgan zaxiralar avtomatik xaridi</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-slate-200 dark:border-forest-900/60">
+                {cycleResult.feedReplenishments.length > 0 ? (
+                  <div className="space-y-2">
+                    {cycleResult.feedReplenishments.map((r, i) => (
+                      <div key={i} className="p-2.5 rounded-xl bg-white dark:bg-forest-950/60 border border-slate-200/80 dark:border-forest-800/40 flex justify-between items-center text-xs">
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-white">{r.name}</p>
+                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400">+{r.quantity} {r.unit} zaxiraga qabul qilindi</p>
+                        </div>
+                        <span className="font-extrabold text-rose-600 dark:text-rose-400">
+                          -{r.cost.toLocaleString()} so'm
+                        </span>
+                      </div>
+                    ))}
+                    <p className="text-[10px] text-forest-700 dark:text-forest-400 font-semibold mt-1">
+                      ✓ Bosh Menejer (Bobur Rustamov) nomidan xarajatlarga yozildi va auditga qayd etildi.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 py-1">
+                    ✓ Barcha ozuqa zaxiralari minimal me'yorda. Avtomatik xarid talab etilmadi.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsCycleModalOpen(false)}
+                className="px-5 py-2 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                Tushunarli
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
     </div>

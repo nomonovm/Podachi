@@ -410,13 +410,15 @@ export class PodachiBackendEngine {
     result: 'SUCCESS' | 'DENIED' | 'FAILED';
     resource_name: string;
     details: string;
+    user_email?: string;
+    user_name?: string;
   }): void {
     const newLog: AuditLog = {
       id: 'log-' + Math.random().toString(36).substring(2, 9),
       farm_id: entry.farm_id,
       timestamp: new Date().toISOString(),
-      user_email: this.state.currentUser.email,
-      user_name: this.state.currentUser.full_name,
+      user_email: entry.user_email || this.state.currentUser.email,
+      user_name: entry.user_name || this.state.currentUser.full_name,
       action_type: entry.action_type,
       result: entry.result,
       resource_name: entry.resource_name,
@@ -1300,6 +1302,255 @@ export class PodachiBackendEngine {
 
     this.notify();
     return tx;
+  }
+
+  // --- Daily Farm Cycle (Sut Tushumi, Yem Sarfi va Avto-To'ldirish) ---
+  public processDailyFarmCycle(): {
+    date: string;
+    cowMilkingHeads: number;
+    goatMilkingHeads: number;
+    cowMilkLiters: number;
+    goatMilkLiters: number;
+    totalMilkRevenue: number;
+    feedDeductions: { name: string; quantity: number; unit: string }[];
+    feedReplenishments: { name: string; quantity: number; unit: string; cost: number }[];
+  } {
+    const today = new Date().toISOString().split('T')[0];
+    const farmId = this.state.currentFarmId;
+
+    // Mas'ul Bosh Menejer akkaunti
+    const managerUser = this.state.users.find(u => u.email === 'manager@podachi.uz') || {
+      full_name: 'Bobur Rustamov (Bosh Menejer)',
+      email: 'manager@podachi.uz',
+    };
+    const managerName = managerUser.full_name;
+    const managerEmail = managerUser.email;
+
+    const farmGroups = this.state.animalGroups.filter(g => g.farm_id === farmId);
+    const farmFeed = this.state.feedItems.filter(f => f.farm_id === farmId);
+
+    // 1. Qoramol va echkilarning kunlik sutini hisoblash va daromadga yozish
+    let cowMilkingHeads = 0;
+    let goatMilkingHeads = 0;
+
+    farmGroups.forEach(g => {
+      const species = g.species.toLowerCase();
+      if (species.includes('qoramol')) {
+        if (g.gender_type === 'urg\'ochi') {
+          cowMilkingHeads += g.current_head_count;
+        } else if (g.gender_type === 'aralash') {
+          cowMilkingHeads += Math.floor(g.current_head_count * 0.6);
+        }
+      } else if (species.includes('echki')) {
+        if (g.gender_type === 'urg\'ochi') {
+          goatMilkingHeads += g.current_head_count;
+        } else if (g.gender_type === 'aralash') {
+          goatMilkingHeads += Math.floor(g.current_head_count * 0.6);
+        }
+      }
+    });
+
+    const cowMilkPerHead = 20; // 20 L/kun
+    const goatMilkPerHead = 1.8; // 1.8 L/kun
+    const cowPricePerLiter = 5500; // 5,500 so'm/L
+    const goatPricePerLiter = 10000; // 10,000 so'm/L
+
+    const cowMilkLiters = Math.round(cowMilkingHeads * cowMilkPerHead);
+    const goatMilkLiters = Math.round(goatMilkingHeads * goatMilkPerHead);
+
+    const cowRevenue = cowMilkLiters * cowPricePerLiter;
+    const goatRevenue = goatMilkLiters * goatPricePerLiter;
+    const totalMilkRevenue = cowRevenue + goatRevenue;
+
+    if (totalMilkRevenue > 0) {
+      const milkRecord: FinanceRecord = {
+        id: 'fin-rev-' + Math.random().toString(36).substring(2, 9),
+        farm_id: farmId,
+        type: 'daromad',
+        category: 'sut_mahsulotlari',
+        amount_uzs: totalMilkRevenue,
+        date: today,
+        description: `Kunlik sut sotuvi tushumi: ${cowMilkLiters} L sigir suti (${cowRevenue.toLocaleString()} so'm) va ${goatMilkLiters} L echki suti (${goatRevenue.toLocaleString()} so'm)`,
+        linked_entity_type: 'manual',
+        created_by: managerName,
+        created_at: new Date().toISOString(),
+      };
+      this.state.finances.unshift(milkRecord);
+
+      this.logAudit({
+        farm_id: farmId,
+        user_name: managerName,
+        user_email: managerEmail,
+        action_type: 'FINANCE_RECORD_CREATE',
+        result: 'SUCCESS',
+        resource_name: 'finances',
+        details: `Menejer qaydi: Kunlik sut sotuvidan tushum kiritildi: ${totalMilkRevenue.toLocaleString()} so'm (${cowMilkLiters}L sigir, ${goatMilkLiters}L echki suti)`,
+      });
+    }
+
+    // 2. Mavjud yemdan hayvon turi va soniga ko'ra kunlik sarfni ayirish
+    let totalCows = 0;
+    let totalSheep = 0;
+    let totalGoats = 0;
+    let totalHorses = 0;
+    let otherAnimals = 0;
+
+    farmGroups.forEach(g => {
+      const sp = g.species.toLowerCase();
+      if (sp.includes('qoramol')) totalCows += g.current_head_count;
+      else if (sp.includes('qo\'y') || sp.includes('qoy')) totalSheep += g.current_head_count;
+      else if (sp.includes('echki')) totalGoats += g.current_head_count;
+      else if (sp.includes('ot')) totalHorses += g.current_head_count;
+      else otherAnimals += g.current_head_count;
+    });
+
+    const totalHeads = totalCows + totalSheep + totalGoats + totalHorses + otherAnimals;
+
+    const bedaDaily = Math.round(totalCows * 0.5 + totalSheep * 0.15 + totalGoats * 0.12 + totalHorses * 0.4 + otherAnimals * 0.1);
+    const yemDailyKg = Math.round(totalCows * 4 + totalSheep * 0.6 + totalGoats * 0.4 + totalHorses * 3 + otherAnimals * 0.3);
+    const silosDailyTonna = Math.round((totalCows * 0.015) * 10) / 10;
+    const vitaminDailyQop = totalHeads > 0 ? 1 : 0;
+
+    const feedDeductions: { name: string; quantity: number; unit: string }[] = [];
+
+    farmFeed.forEach(feed => {
+      let consumeQty = 0;
+      const ft = feed.feed_type;
+      const nm = feed.name.toLowerCase();
+
+      if (ft === 'xashak' || nm.includes('beda') || feed.unit === 'bog\'lam') {
+        consumeQty = bedaDaily;
+      } else if (ft === 'yem' || feed.unit === 'kg') {
+        consumeQty = yemDailyKg;
+      } else if (ft === 'silos' || feed.unit === 'tonna') {
+        consumeQty = silosDailyTonna;
+      } else if (ft === 'vitamin' || feed.unit === 'qop') {
+        consumeQty = vitaminDailyQop;
+      }
+
+      if (consumeQty > 0) {
+        const actualDeduct = Math.min(feed.stock_quantity, consumeQty);
+        if (actualDeduct > 0) {
+          const prev = feed.stock_quantity;
+          const next = prev - actualDeduct;
+          feed.stock_quantity = next;
+          feed.updated_at = new Date().toISOString();
+
+          const tx: FeedTransaction = {
+            id: 'feed-tx-' + Math.random().toString(36).substring(2, 9),
+            farm_id: farmId,
+            feed_id: feed.id,
+            feed_name: feed.name,
+            transaction_type: 'outgoing',
+            quantity: actualDeduct,
+            previous_stock: prev,
+            new_stock: next,
+            date: today,
+            notes: `Kunlik rejaviy sarf (${totalHeads} bosh chorva uchun)`,
+          };
+          this.state.feedTransactions.unshift(tx);
+          feedDeductions.push({ name: feed.name, quantity: actualDeduct, unit: feed.unit });
+        }
+      }
+    });
+
+    if (feedDeductions.length > 0) {
+      this.logAudit({
+        farm_id: farmId,
+        user_name: managerName,
+        user_email: managerEmail,
+        action_type: 'FEED_TRANSACTION',
+        result: 'SUCCESS',
+        resource_name: 'feed_inventory',
+        details: `Menejer qaydi: Kunlik ozuqa sarfi amalga oshirildi (${feedDeductions.map(f => `${f.name}: -${f.quantity} ${f.unit}`).join(', ')})`,
+      });
+    }
+
+    // 3. Yem minimal chegara ogohlantirishiga (min_threshold) yetganda avtomatik sotib olish va xarajatlarga yozish
+    const feedReplenishments: { name: string; quantity: number; unit: string; cost: number }[] = [];
+
+    farmFeed.forEach(feed => {
+      if (feed.stock_quantity <= feed.min_threshold) {
+        let restockQty = 0;
+        if (feed.unit === 'bog\'lam') restockQty = Math.max(500, feed.min_threshold * 3);
+        else if (feed.unit === 'kg') restockQty = Math.max(3000, feed.min_threshold * 2);
+        else if (feed.unit === 'tonna') restockQty = Math.max(10, feed.min_threshold * 2);
+        else if (feed.unit === 'qop') restockQty = Math.max(25, feed.min_threshold * 2);
+        else restockQty = Math.max(50, feed.min_threshold * 2);
+
+        const unitPrice = feed.unit_price_uzs || 30000;
+        const totalCost = restockQty * unitPrice;
+
+        const prev = feed.stock_quantity;
+        const next = prev + restockQty;
+        feed.stock_quantity = next;
+        feed.updated_at = new Date().toISOString();
+
+        const tx: FeedTransaction = {
+          id: 'feed-tx-' + Math.random().toString(36).substring(2, 9),
+          farm_id: farmId,
+          feed_id: feed.id,
+          feed_name: feed.name,
+          transaction_type: 'incoming',
+          quantity: restockQty,
+          previous_stock: prev,
+          new_stock: next,
+          date: today,
+          notes: `Minimal chegara ogohlantirishi (${prev} <= ${feed.min_threshold} ${feed.unit}): Menejer Bobur Rustamov nomidan avtomatik to'ldirish`,
+          total_cost_uzs: totalCost,
+        };
+        this.state.feedTransactions.unshift(tx);
+
+        const expenseRecord: FinanceRecord = {
+          id: 'fin-exp-' + Math.random().toString(36).substring(2, 9),
+          farm_id: farmId,
+          type: 'xarajat',
+          category: 'yem_xashak',
+          amount_uzs: totalCost,
+          date: today,
+          description: `Minimal chegara xaridi: ${restockQty} ${feed.unit} ${feed.name} (Menejer tomonidan zaxira to'ldirildi)`,
+          linked_entity_type: 'feed_purchase',
+          linked_entity_id: tx.id,
+          created_by: managerName,
+          created_at: new Date().toISOString(),
+        };
+        this.state.finances.unshift(expenseRecord);
+
+        this.logAudit({
+          farm_id: farmId,
+          user_name: managerName,
+          user_email: managerEmail,
+          action_type: 'FEED_TRANSACTION',
+          result: 'SUCCESS',
+          resource_name: 'feed_inventory',
+          details: `Menejer Bobur Rustamov qaydi: ${feed.name} minimal chegaraga (${prev} <= ${feed.min_threshold} ${feed.unit}) yetgani sababli ${restockQty} ${feed.unit} sotib olindi (Xarajat: ${totalCost.toLocaleString()} so'm)`,
+        });
+
+        feedReplenishments.push({
+          name: feed.name,
+          quantity: restockQty,
+          unit: feed.unit,
+          cost: totalCost,
+        });
+      }
+    });
+
+    try {
+      localStorage.setItem('podachi_last_cycle_date', today);
+    } catch (e) {}
+
+    this.notify();
+
+    return {
+      date: today,
+      cowMilkingHeads,
+      goatMilkingHeads,
+      cowMilkLiters,
+      goatMilkLiters,
+      totalMilkRevenue,
+      feedDeductions,
+      feedReplenishments,
+    };
   }
 
   // --- Finance Records ---

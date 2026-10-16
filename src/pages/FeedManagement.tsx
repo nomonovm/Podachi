@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { backendEngine } from '../lib/backendEngine';
-import { Wheat, Plus, ArrowDown, ArrowUp, AlertTriangle, RotateCw, CheckCircle2 } from 'lucide-react';
+import { Wheat, Plus, ArrowDown, ArrowUp, AlertTriangle, RotateCw, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { FeedItem, DailyFarmCycleSummary } from '../types';
@@ -685,7 +685,7 @@ export const FeedManagement: React.FC = () => {
                 {isCycleSaved ? 'Yopish' : 'Bekor qilish'}
               </button>
 
-              {!isCycleSaved && (
+              {!isCycleSaved && canManage && (
                 <button
                   type="button"
                   onClick={handleCommitDailyCycle}
@@ -694,6 +694,12 @@ export const FeedManagement: React.FC = () => {
                   <Plus className="w-4 h-4" />
                   Qayd qo'shish
                 </button>
+              )}
+              {!isCycleSaved && !canManage && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/40 font-medium">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <span>Kuzatuvchi (mehmon) rejimi: Qayd qo'shish cheklangan</span>
+                </div>
               )}
             </div>
           </div>

@@ -14,6 +14,9 @@ import {
   RotateCw,
   Plus,
   CheckCircle2,
+  Lock,
+  ShieldAlert,
+  Wheat,
 } from 'lucide-react';
 import { DailyFarmCycleSummary } from '../types';
 import { StatCard } from '../components/ui/StatCard';
@@ -32,7 +35,9 @@ import {
 } from 'recharts';
 
 export const Dashboard: React.FC = () => {
-  const { state, currentFarm, setActiveTab, isDarkMode, showToast } = useApp();
+  const { state, currentFarm, currentRole, setActiveTab, isDarkMode, showToast } = useApp();
+
+  const canManage = currentRole === 'admin' || currentRole === 'manager';
 
   const [cyclePreview, setCyclePreview] = useState<DailyFarmCycleSummary | null>(null);
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
@@ -180,23 +185,47 @@ export const Dashboard: React.FC = () => {
           badgeVariant={totalReservedInMarket > 0 ? "amber" : "slate"}
         />
 
-        <StatCard
-          title="Jami Daromad"
-          value={`${(totalRevenues / 1_000_000).toFixed(1)} mln so'm`}
-          subtitle="Chorva va mahsulot sotuvidan"
-          icon={ArrowUpRight}
-          badge="Kirim"
-          badgeVariant="emerald"
-        />
+        {currentRole !== 'viewer' ? (
+          <>
+            <StatCard
+              title="Jami Daromad"
+              value={`${(totalRevenues / 1_000_000).toFixed(1)} mln so'm`}
+              subtitle="Chorva va mahsulot sotuvidan"
+              icon={ArrowUpRight}
+              badge="Kirim"
+              badgeVariant="emerald"
+            />
 
-        <StatCard
-          title="Moliyaviy Natija"
-          value={`${(financialResult / 1_000_000).toFixed(1)} mln so'm`}
-          subtitle={`Jami xarajat: ${(totalExpenses / 1_000_000).toFixed(1)} mln`}
-          icon={Receipt}
-          badge={financialResult >= 0 ? "Ijobiy balans" : "Zarar"}
-          badgeVariant={financialResult >= 0 ? "emerald" : "rose"}
-        />
+            <StatCard
+              title="Moliyaviy Natija"
+              value={`${(financialResult / 1_000_000).toFixed(1)} mln so'm`}
+              subtitle={`Jami xarajat: ${(totalExpenses / 1_000_000).toFixed(1)} mln`}
+              icon={Receipt}
+              badge={financialResult >= 0 ? "Ijobiy balans" : "Zarar"}
+              badgeVariant={financialResult >= 0 ? "emerald" : "rose"}
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Ozuqa Zaxirasi"
+              value={`${feedItems.length} turdagi`}
+              subtitle="Ombordagi ozuqa turlari"
+              icon={Wheat}
+              badge="Zaxira me'yorda"
+              badgeVariant="emerald"
+            />
+
+            <StatCard
+              title="Veterinariya Ko'riklari"
+              value={`${vetRecords.length} ta qayd`}
+              subtitle="Sog'liq va emlash nazorati"
+              icon={Stethoscope}
+              badge="Profilaktika"
+              badgeVariant="forest"
+            />
+          </>
+        )}
       </div>
 
       {/* Alerts & Urgent Actions */}
@@ -264,46 +293,61 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Financial Flow Overview */}
-        <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-6 border border-slate-200/90 dark:border-forest-900/40 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Moliya Dinamikasi (Daromad vs Xarajat)</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">So'nggi 3 oylik taqqoslama hisobot</p>
-            </div>
-            <button
-              onClick={() => setActiveTab('finance')}
-              className="text-xs font-semibold text-forest-700 dark:text-forest-400 hover:text-forest-800 transition"
-            >
-              Batafsil &rarr;
-            </button>
-          </div>
-          <div className="h-64">
-            {monthlyFinanceData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyFinanceData}>
-                <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
-                <YAxis
-                  stroke="#94A3B8"
-                  fontSize={11}
-                  tickFormatter={(val: number) => `${(val / 1000000).toFixed(0)}m`}
-                />
-                <Tooltip
-                  formatter={(val: any) => [`${Number(val).toLocaleString()} so'm`]}
-                  contentStyle={{ backgroundColor: isDarkMode ? '#070D0B' : '#0F172A', color: '#fff', borderRadius: '12px', border: '1px solid #1e293b' }}
-                />
-                <Legend />
-                <Bar dataKey="daromad" name="Daromad" fill="#2A6F59" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="xarajat" name="Xarajat" fill="#E11D48" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">
-                Moliyaviy yozuvlar mavjud emas
+        {/* Financial Flow Overview / Visitor Notice */}
+        {currentRole !== 'viewer' ? (
+          <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-6 border border-slate-200/90 dark:border-forest-900/40 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Moliya Dinamikasi (Daromad vs Xarajat)</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">So'nggi 3 oylik taqqoslama hisobot</p>
               </div>
-            )}
+              <button
+                onClick={() => setActiveTab('finance')}
+                className="text-xs font-semibold text-forest-700 dark:text-forest-400 hover:text-forest-800 transition"
+              >
+                Batafsil &rarr;
+              </button>
+            </div>
+            <div className="h-64">
+              {monthlyFinanceData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyFinanceData}>
+                    <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
+                    <YAxis
+                      stroke="#94A3B8"
+                      fontSize={11}
+                      tickFormatter={(val: number) => `${(val / 1000000).toFixed(0)}m`}
+                    />
+                    <Tooltip
+                      formatter={(val: any) => [`${Number(val).toLocaleString()} so'm`]}
+                      contentStyle={{ backgroundColor: isDarkMode ? '#070D0B' : '#0F172A', color: '#fff', borderRadius: '12px', border: '1px solid #1e293b' }}
+                    />
+                    <Legend />
+                    <Bar dataKey="daromad" name="Daromad" fill="#2A6F59" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="xarajat" name="Xarajat" fill="#E11D48" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">
+                  Moliyaviy yozuvlar mavjud emas
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-6 border border-slate-200/90 dark:border-forest-900/40 shadow-xs flex flex-col justify-center items-center text-center">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 border border-amber-200 dark:border-amber-800/60">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Moliyaviy Hisobot Maxfiy</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed mb-3">
+              Kuzatuvchi (mehmon) maqomida ferma daromadlari, xarajatlari va moliyaviy oqim ko'rsatkichlari ko'rsatilmaydi.
+            </p>
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-3 py-1 rounded-full">
+              Faqat Boshqaruv xodimlari uchun
+            </span>
+          </div>
+        )}
 
       </div>
 
@@ -351,39 +395,54 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Latest Livestock Movements */}
-        <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-6 border border-slate-200/90 dark:border-forest-900/40 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Layers className="w-5 h-5 text-forest-700 dark:text-forest-400" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">So'nggi Chorva Harakatlari</h3>
-            </div>
-            <button
-              onClick={() => setActiveTab('movements')}
-              className="text-xs font-semibold text-forest-700 dark:text-forest-400 hover:underline"
-            >
-              Tarix &rarr;
-            </button>
-          </div>
-          <div className="space-y-3">
-            {movements.slice(0, 4).map(mov => (
-              <div key={mov.id} className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">{mov.species} ({mov.breed})</span>
-                    <Badge size="sm" variant={mov.delta_count > 0 ? 'emerald' : 'rose'}>
-                      {mov.delta_count > 0 ? `+${mov.delta_count}` : `${mov.delta_count}`} bosh
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{mov.reason}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{mov.head_count_after} bosh</span>
-                  <span className="block text-[10px] text-slate-400">{mov.date}</span>
-                </div>
+        {currentRole !== 'viewer' ? (
+          <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-6 border border-slate-200/90 dark:border-forest-900/40 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-forest-700 dark:text-forest-400" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">So'nggi Chorva Harakatlari</h3>
               </div>
-            ))}
+              <button
+                onClick={() => setActiveTab('movements')}
+                className="text-xs font-semibold text-forest-700 dark:text-forest-400 hover:underline"
+              >
+                Tarix &rarr;
+              </button>
+            </div>
+            <div className="space-y-3">
+              {movements.slice(0, 4).map(mov => (
+                <div key={mov.id} className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white">{mov.species} ({mov.breed})</span>
+                      <Badge size="sm" variant={mov.delta_count > 0 ? 'emerald' : 'rose'}>
+                        {mov.delta_count > 0 ? `+${mov.delta_count}` : `${mov.delta_count}`} bosh
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{mov.reason}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{mov.head_count_after} bosh</span>
+                    <span className="block text-[10px] text-slate-400">{mov.date}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-6 border border-slate-200/90 dark:border-forest-900/40 shadow-xs flex flex-col justify-center items-center text-center">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 border border-amber-200 dark:border-amber-800/60">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Harakatlar Tarixi Maxfiy</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed mb-3">
+              Kuzatuvchi (mehmon) maqomida ichki chorva operatsiyalari, xarid va sotuv harakatlari ko'rsatilmaydi.
+            </p>
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-3 py-1 rounded-full">
+              Faqat Boshqaruv xodimlari uchun
+            </span>
+          </div>
+        )}
 
       </div>
 
@@ -554,7 +613,7 @@ export const Dashboard: React.FC = () => {
                 {isCycleSaved ? 'Yopish' : 'Bekor qilish'}
               </button>
 
-              {!isCycleSaved && (
+              {!isCycleSaved && canManage && (
                 <button
                   type="button"
                   onClick={handleCommitDailyCycle}
@@ -563,6 +622,12 @@ export const Dashboard: React.FC = () => {
                   <Plus className="w-4 h-4" />
                   Qayd qo'shish
                 </button>
+              )}
+              {!isCycleSaved && !canManage && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/40 font-medium">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <span>Kuzatuvchi (mehmon) rejimi: Qayd qo'shish cheklangan</span>
+                </div>
               )}
             </div>
           </div>

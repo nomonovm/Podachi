@@ -44,7 +44,7 @@ export const Sidebar: React.FC = () => {
         { id: 'dashboard', label: 'Boshqaruv Paneli', icon: LayoutDashboard },
         { id: 'livestock', label: 'Chorva Hisobi', icon: Layers },
         { id: 'catalog', label: 'Zotlar Katalogi', icon: BookOpen },
-        { id: 'movements', label: 'Harakatlar Tarixi', icon: History },
+        { id: 'movements', label: 'Harakatlar Tarixi', icon: History, roles: ['admin', 'manager', 'veterinarian'] },
       ],
     },
     {

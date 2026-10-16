@@ -1675,6 +1675,8 @@ export class PodachiBackendEngine {
 
   // --- Daily Farm Cycle (Sut Tushumi, Yem Sarfi va Avto-To'ldirishni Qo'llash va Qaydlarni Saqlash) ---
   public processDailyFarmCycle(): DailyFarmCycleSummary {
+    this.checkPermission(['admin', 'manager', 'veterinarian'], 'daily_cycle', 'Kunlik siklni qayd etish');
+
     const today = new Date().toISOString().split('T')[0];
     const farmId = this.state.currentFarmId;
 

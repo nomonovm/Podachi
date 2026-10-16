@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { backendEngine } from '../lib/backendEngine';
-import { History, Search, ArrowUpRight, ArrowDownRight, Layers, FileText, Undo2, Trash2, AlertTriangle } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownRight, Layers, FileText, Undo2, Trash2, AlertTriangle, Lock } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { MovementType, AnimalMovement } from '../types';
@@ -23,6 +23,24 @@ export const MovementsHistory: React.FC = () => {
   const isAdmin = currentRole === 'admin';
   const isManager = currentRole === 'manager';
   const canAct = isAdmin || isManager;
+
+  if (currentRole === 'viewer') {
+    return (
+      <div className="bg-white dark:bg-[#0E1A16] rounded-3xl p-12 text-center border border-slate-200/90 dark:border-forest-800/40 max-w-xl mx-auto mt-12 shadow-sm">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center justify-center mx-auto mb-4 border border-amber-200 dark:border-amber-800">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Kirish Cheklangan</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
+          Sizning rolingiz: <strong className="capitalize text-slate-900 dark:text-white">Kuzatuvchi (mehmon)</strong>.<br />
+          Xavfsizlik va maxfiylik talablariga ko'ra, harakatlar tarixi va ichki operatsiyalar ma'lumotlari faqat ferma xodimlari uchun ochiq.
+        </p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          Kuzatuvchi roli faqat umumiy ko'rinish uchun mo'ljallangan bo'lib, ichki harakatlar va moliyaviy operatsiyalar tarixi ko'rsatilmaydi.
+        </p>
+      </div>
+    );
+  }
 
   const movementLabels: Record<MovementType, { label: string; variant: 'emerald' | 'rose' | 'slate' | 'amber' }> = {
     initial: { label: 'Boshlang\'ich qoldiq', variant: 'slate' },

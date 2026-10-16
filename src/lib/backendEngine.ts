@@ -3021,24 +3021,34 @@ export class PodachiBackendEngine {
     });
     const isAlreadyPaid = !!targetPeriodRun;
 
+    // Agar ushbu davr uchun oylik/avans allaqachon to'langan bo'lsa, o'sha to'langan qayddagi haqiqiy summalarni (jumladan rahbar olgan dividendini) saqlab qolamiz
+    const finalAdminPayout = targetPeriodRun ? targetPeriodRun.admin_payout_uzs : adminPayout;
+    const finalEmployeePayout = targetPeriodRun ? targetPeriodRun.total_employee_payout_uzs : totalEmployeePayout;
+    const finalEmployeesPaid = targetPeriodRun ? targetPeriodRun.employees_paid : employeesPaid;
+    const finalReserveRetained = targetPeriodRun ? targetPeriodRun.feed_reserve_retained_uzs : feedReserveRetained;
+    const finalReserveCycles = targetPeriodRun?.feed_reserve_cycles !== undefined ? targetPeriodRun.feed_reserve_cycles : reserveCycles;
+    const finalBalanceBefore = targetPeriodRun ? targetPeriodRun.farm_balance_before_run_uzs : farmBalanceBefore;
+    const finalBalanceAfter = targetPeriodRun ? targetPeriodRun.farm_balance_after_run_uzs : farmBalanceAfter;
+
     return {
       periodType,
       periodYearMonth: periodInfo.periodYearMonth,
       periodLabel: periodInfo.periodLabel,
-      paymentDate: date.toISOString().split('T')[0],
-      employeesPaid,
-      totalEmployeePayout,
-      singleFeedCost,
-      reserveCycles,
-      feedReserveCycles: reserveCycles,
-      fiveCyclesFeedReserve: feedReserveRetained, // backward compatibility
-      feedReserveRetained,
-      farmBalanceBefore,
-      balanceAfterEmployees,
-      adminPayout,
-      farmBalanceAfter,
+      paymentDate: targetPeriodRun ? targetPeriodRun.payment_date : date.toISOString().split('T')[0],
+      employeesPaid: finalEmployeesPaid,
+      totalEmployeePayout: finalEmployeePayout,
+      singleFeedCost: targetPeriodRun ? targetPeriodRun.single_feed_cycle_cost_uzs : singleFeedCost,
+      reserveCycles: finalReserveCycles,
+      feedReserveCycles: finalReserveCycles,
+      fiveCyclesFeedReserve: finalReserveRetained, // backward compatibility
+      feedReserveRetained: finalReserveRetained,
+      farmBalanceBefore: finalBalanceBefore,
+      balanceAfterEmployees: targetPeriodRun ? (finalBalanceBefore - finalEmployeePayout) : balanceAfterEmployees,
+      adminPayout: finalAdminPayout,
+      farmBalanceAfter: finalBalanceAfter,
       adminUser: adminMember,
       isAlreadyPaid,
+      paidRecord: targetPeriodRun,
     };
   }
 

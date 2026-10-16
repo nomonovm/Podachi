@@ -265,7 +265,9 @@ export const Payroll: React.FC = () => {
             {preview.adminPayout.toLocaleString()} so'm
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Ortgan sof foyda: Balans - Xodimlar - {reserveCycles}x Ozuqa zaxirasi
+            {preview.isAlreadyPaid
+              ? `✓ Ushbu davrda rahbarga to'langan sof foyda (dividend) (Jami oy: ${(financialSummary.totalAdminPayouts / 1e6).toFixed(1)}m)`
+              : `Ortgan sof foyda: Balans - Xodimlar - ${reserveCycles}x Ozuqa zaxirasi`}
           </p>
         </div>
       </div>
@@ -313,7 +315,9 @@ export const Payroll: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300">
-              Xodimlarga oylik maoshining 50% qismi beriladi va ferma xarajatiga yoziladi.
+              {avansRunThisMonth
+                ? `Xodimlarga oylik maoshining 50% avans qismi to'landi (${avansRunThisMonth.payment_date}).`
+                : "Xodimlarga oylik maoshining 50% qismi beriladi va ferma xarajatiga yoziladi."}
             </p>
           </div>
 
@@ -345,7 +349,9 @@ export const Payroll: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300">
-              Xodimlarga oylik maoshining qolgan 50% qismi beriladi. Ortgan mablag' {reserveCycles}x ozuqa zaxirasi qoldirilgach, Rahbarga sof foyda (dividend) sifatida ajratiladi.
+              {oylikRunThisMonth
+                ? `Xodimlarga oylik maoshining qolgan 50% qismi to'landi (${oylikRunThisMonth.payment_date}). Ortgan mablag'dan Rahbarga ${oylikRunThisMonth.admin_payout_uzs.toLocaleString()} so'm sof foyda (dividend) ajratildi.`
+                : `Xodimlarga oylik maoshining qolgan 50% qismi beriladi. Ortgan mablag' ${reserveCycles}x ozuqa zaxirasi qoldirilgach, Rahbarga sof foyda (dividend) sifatida ajratiladi.`}
             </p>
           </div>
         </div>
@@ -451,11 +457,17 @@ export const Payroll: React.FC = () => {
                   Sof foyda ulushidan (Belgilanmagan)
                 </td>
                 <td className="py-4 px-6 font-extrabold text-emerald-700 dark:text-emerald-400">
-                  {preview.adminPayout > 0 ? `+${preview.adminPayout.toLocaleString()} so'm` : '0 so\'m (Zaxira yetarli emas)'}
+                  {preview.adminPayout > 0
+                    ? `+${preview.adminPayout.toLocaleString()} so'm`
+                    : preview.isAlreadyPaid
+                    ? '0 so\'m (Bu davrda dividend ajratilmagan)'
+                    : '0 so\'m (Zaxira yetarli emas)'}
                 </td>
                 <td className="py-4 px-6" colSpan={2}>
                   <span className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-md font-semibold border border-emerald-200 dark:border-emerald-900/40">
-                    Daxlsiz {reserveCycles}x zaxira ({preview.feedReserveRetained.toLocaleString()} so'm) qoldirilgach, ortgan sof foyda ulushi (dividend)
+                    {preview.isAlreadyPaid && preview.adminPayout > 0
+                      ? `✓ Ushbu davrda rahbarga to'langan sof foyda ulushi (dividend): +${preview.adminPayout.toLocaleString()} so'm (Ferma hisobida daxlsiz ${preview.feedReserveCycles || reserveCycles}x ozuqa zaxirasi: ${preview.feedReserveRetained.toLocaleString()} so'm saqlangan)`
+                      : `Daxlsiz ${reserveCycles}x zaxira (${preview.feedReserveRetained.toLocaleString()} so'm) qoldirilgach, ortgan sof foyda ulushi (dividend)`}
                   </span>
                 </td>
               </tr>

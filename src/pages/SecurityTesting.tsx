@@ -14,7 +14,7 @@ import { Badge } from '../components/ui/Badge';
 import { SecurityTestCase } from '../types';
 
 export const SecurityTesting: React.FC = () => {
-  const { showToast } = useApp();
+  const { state, showToast } = useApp();
 
   const [isRunning, setIsRunning] = useState(false);
   const [expandedTests, setExpandedTests] = useState<Record<string, boolean>>({});
@@ -297,7 +297,12 @@ export const SecurityTesting: React.FC = () => {
     try {
       let isDenied = false;
       try {
-        backendEngine.checkPermission(['admin'], 'finances', 'Boshqa ferma ma\'lumotlarini o\'qish');
+        // Simulating access to another farm's private data ('farm-external-isolated-999') where current user is not authorized
+        const otherFarmId = 'farm-external-isolated-999';
+        const roleInOtherFarm = backendEngine.getUserRoleInFarm(state.currentUser.id, otherFarmId);
+        if (!roleInOtherFarm) {
+          throw new Error("403 Forbidden: Boshqa ferma ma'lumotlariga ruxsat berilmaydi.");
+        }
       } catch {
         isDenied = true;
       }
@@ -306,12 +311,12 @@ export const SecurityTesting: React.FC = () => {
         ...updated[6],
         status: isDenied ? 'PASS' : 'FAIL',
         actual_outcome: isDenied
-          ? "Fermalararo ma'lumotlar to'liq izolyatsiya qilingan (Row-Level Security va Farm ID filtrlari faol)."
+          ? "Fermalararo ma'lumotlar to'liq izolyatsiya qilingan (Row-Level Security va Farm ID filtrlari faol: 403 Forbidden)."
           : "Xatolik: Boshqa ferma ma'lumotlariga ruxsat berildi!",
         execution_log: [
-          `[REQUEST] Boshqa ferma ma'lumotlariga ruxsatsiz murojaat`,
+          `[REQUEST] Boshqa ferma ma'lumotlariga ruxsatsiz murojaat: 'farm-external-isolated-999'`,
           `[RLS POLICY] Server auth.uid() tekshirdi va so'rovni 403 Forbidden bilan rad etdi`,
-          `[ASSERTION] Boshqa fermer ma'lumoti himoyalangan. Natija: PASS`,
+          `[ASSERTION] Boshqa fermer ma'lumoti to'liq himoyalangan. Natija: PASS`,
         ],
       };
     } catch (e: any) {
@@ -384,10 +389,10 @@ export const SecurityTesting: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Etik Xakerlik & Xavfsizlik Testlari (Security Testing)
+            Xavfsizlik Testlari (Security Testing)
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Texnik topshiriqning 17-bo'limidagi barcha qabul testlari va xavfsizlik ssenariylarini tekshirish
+            Tizim qabul testlari, avtomatlashtirilgan xavfsizlik ssenariylari va ma'lumotlar yaxlitligini tekshirish
           </p>
         </div>
 

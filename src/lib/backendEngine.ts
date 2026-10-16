@@ -276,6 +276,26 @@ export function loadState(): PodachiState {
       });
     }
 
+    // Auto-sync: Agar oylik to'lovi moliya yozuvi bekor qilingan bo'lsa, tegishli payrollRun ni ham bekor qilish (is_cancelled)
+    if (Array.isArray(parsed.payrollRuns) && Array.isArray(parsed.finances)) {
+      parsed.payrollRuns.forEach((run: PayrollRunRecord) => {
+        if (!run.is_cancelled) {
+          const linkedFin = parsed.finances.find(
+            (f: FinanceRecord) =>
+              (run.finance_record_id && f.id === run.finance_record_id) ||
+              f.linked_entity_id === run.id ||
+              (f.farm_id === run.farm_id && f.category === 'ish_haqi' && f.date === run.payment_date)
+          );
+          if (linkedFin && linkedFin.is_cancelled) {
+            run.is_cancelled = true;
+            run.cancelled_at = linkedFin.cancelled_at || new Date().toISOString();
+            run.cancelled_by = linkedFin.cancelled_by;
+            stateWasRepaired = true;
+          }
+        }
+      });
+    }
+
     // Auto-repair: Ferma administratorsiz qolmasligi va asosiy admin rolini qayta tiklash
     if (Array.isArray(parsed.farmMembers)) {
       parsed.farmMembers.forEach((m: FarmMember) => {
@@ -2528,6 +2548,22 @@ export class PodachiBackendEngine {
     record.cancelled_at = new Date().toISOString();
     record.cancelled_by = this.state.currentUser.full_name;
 
+    // Agar ushbu moliya yozuvi oylik yoki ish haqi (payrollRun) bilan bog'langan bo'lsa, tegishli payrollRun ni ham bekor qilish
+    if (Array.isArray(this.state.payrollRuns)) {
+      const linkedRun = this.state.payrollRuns.find(
+        r => !r.is_cancelled && (
+          r.finance_record_id === record.id ||
+          r.id === record.linked_entity_id ||
+          (r.farm_id === record.farm_id && record.category === 'ish_haqi' && record.date === r.payment_date)
+        )
+      );
+      if (linkedRun) {
+        linkedRun.is_cancelled = true;
+        linkedRun.cancelled_at = record.cancelled_at;
+        linkedRun.cancelled_by = record.cancelled_by;
+      }
+    }
+
     const roleLabel = this.getRoleTitle();
 
     this.logAudit({
@@ -2536,6 +2572,52 @@ export class PodachiBackendEngine {
       result: 'SUCCESS',
       resource_name: 'finances',
       details: `${roleLabel} (${this.state.currentUser.full_name}) tomonidan moliya yozuvi bekor qilindi: [${record.type === 'daromad' ? 'Daromad' : 'Xarajat'}] ${record.amount_uzs.toLocaleString()} so'm ('${record.description}'). Balans avvalgi holatiga qaytarildi.`,
+    });
+
+    this.notify();
+  }
+
+  public cancelPayrollRun(runId: string): void {
+    this.checkPermission(['admin', 'head_manager'], 'payroll', 'Oylik to\'lovini bekor qilish');
+
+    const run = (this.state.payrollRuns || []).find(r => r.id === runId);
+    if (!run) throw new Error("Oylik to'lovi qaydi topilmadi.");
+
+    if (run.is_cancelled) {
+      throw new Error("Ushbu oylik to'lovi allaqachon bekor qilingan.");
+    }
+
+    const now = new Date().toISOString();
+    const cancellerName = this.state.currentUser.full_name;
+
+    run.is_cancelled = true;
+    run.cancelled_at = now;
+    run.cancelled_by = cancellerName;
+
+    // Bog'liq moliya xarajat yozuvini ham bekor qilish (agar bekor qilinmagan bo'lsa)
+    if (Array.isArray(this.state.finances)) {
+      const linkedFin = this.state.finances.find(
+        f => !f.is_cancelled && (
+          (run.finance_record_id && f.id === run.finance_record_id) ||
+          f.linked_entity_id === run.id ||
+          (f.farm_id === run.farm_id && f.category === 'ish_haqi' && f.date === run.payment_date)
+        )
+      );
+      if (linkedFin) {
+        linkedFin.is_cancelled = true;
+        linkedFin.cancelled_at = now;
+        linkedFin.cancelled_by = cancellerName;
+      }
+    }
+
+    const roleLabel = this.getRoleTitle();
+
+    this.logAudit({
+      farm_id: run.farm_id,
+      action_type: 'PAYROLL_UPDATE',
+      result: 'SUCCESS',
+      resource_name: 'payroll',
+      details: `${roleLabel} (${cancellerName}) tomonidan ${run.period_label} oylik to'lovi bekor qilindi. Xodimlar maoshi (${run.total_employee_payout_uzs.toLocaleString()} so'm) va rahbar dividend miqdori (${run.admin_payout_uzs.toLocaleString()} so'm) ferma hisobiga to'liq tiklandi va qayta to'lov qilish tugmasi faollashdi.`,
     });
 
     this.notify();
@@ -2756,7 +2838,7 @@ export class PodachiBackendEngine {
     const netProfit = totalRevenue - totalExpenses;
 
     const totalAdminPayouts = (this.state.payrollRuns || [])
-      .filter(r => r.farm_id === targetFarmId)
+      .filter(r => r.farm_id === targetFarmId && !r.is_cancelled)
       .reduce((sum, r) => sum + (r.admin_payout_uzs || 0), 0);
 
     const farmBalance = netProfit - totalAdminPayouts;
@@ -2855,9 +2937,30 @@ export class PodachiBackendEngine {
       : `${year}-yil ${monthName} (2-davr: Oylik qoldig'i, 16-31 kunlari)`;
 
     const farmId = this.state.currentFarmId;
-    const paidRecord = (this.state.payrollRuns || []).find(
-      r => r.farm_id === farmId && r.period_year_month === periodYearMonth && r.period_type === periodType
-    );
+    const paidRecord = (this.state.payrollRuns || []).find(r => {
+      if (r.farm_id !== farmId || r.period_year_month !== periodYearMonth || r.period_type !== periodType) {
+        return false;
+      }
+      if (r.is_cancelled) return false;
+
+      // Auto-sync: agar bog'liq moliya yozuvi bekor qilingan bo'lsa, ushbu run ham bekor deb belgilanadi
+      if (r.finance_record_id) {
+        const fin = (this.state.finances || []).find(f => f.id === r.finance_record_id);
+        if (fin && fin.is_cancelled) {
+          r.is_cancelled = true;
+          return false;
+        }
+      } else {
+        const fin = (this.state.finances || []).find(
+          f => f.farm_id === farmId && f.category === 'ish_haqi' && f.date === r.payment_date
+        );
+        if (fin && fin.is_cancelled) {
+          r.is_cancelled = true;
+          return false;
+        }
+      }
+      return true;
+    });
 
     return {
       currentDay,
@@ -2901,6 +3004,23 @@ export class PodachiBackendEngine {
       m => m.farm_id === farmId && m.role === 'admin' && m.status === 'active'
     );
 
+    // Tekshiruv: tanlangan periodType (avans yoki oylik) bo'yicha bekor qilinmagan to'lov mavjudligini aniqlash
+    const targetPeriodRun = (this.state.payrollRuns || []).find(r => {
+      if (r.farm_id !== farmId || r.period_year_month !== periodInfo.periodYearMonth || r.period_type !== periodType) {
+        return false;
+      }
+      if (r.is_cancelled) return false;
+      if (r.finance_record_id) {
+        const fin = (this.state.finances || []).find(f => f.id === r.finance_record_id);
+        if (fin && fin.is_cancelled) {
+          r.is_cancelled = true;
+          return false;
+        }
+      }
+      return true;
+    });
+    const isAlreadyPaid = !!targetPeriodRun;
+
     return {
       periodType,
       periodYearMonth: periodInfo.periodYearMonth,
@@ -2918,7 +3038,7 @@ export class PodachiBackendEngine {
       adminPayout,
       farmBalanceAfter,
       adminUser: adminMember,
-      isAlreadyPaid: periodInfo.isAlreadyPaid,
+      isAlreadyPaid,
     };
   }
 
@@ -2941,9 +3061,20 @@ export class PodachiBackendEngine {
     }
 
     // Tekshiruv: Oyda 2 martadan ko'p bajarilmasin (1-15 bir marta, 16-30/31 bir marta)
-    const existingRun = (this.state.payrollRuns || []).find(
-      r => r.farm_id === farmId && r.period_year_month === preview.periodYearMonth && r.period_type === preview.periodType
-    );
+    const existingRun = (this.state.payrollRuns || []).find(r => {
+      if (r.farm_id !== farmId || r.period_year_month !== preview.periodYearMonth || r.period_type !== preview.periodType) {
+        return false;
+      }
+      if (r.is_cancelled) return false;
+      if (r.finance_record_id) {
+        const fin = (this.state.finances || []).find(f => f.id === r.finance_record_id);
+        if (fin && fin.is_cancelled) {
+          r.is_cancelled = true;
+          return false;
+        }
+      }
+      return true;
+    });
     if (existingRun) {
       throw new Error(
         `Xavfsizlik qoidasi: ${preview.periodLabel} uchun oylik allaqachon to'langan (${existingRun.payment_date} da qayd etilgan). Oyda bir davr uchun faqat bir marta oylik tarqatish mumkin!`
@@ -2956,17 +3087,22 @@ export class PodachiBackendEngine {
       );
     }
 
+    const runId = 'payroll-run-' + Math.random().toString(36).substring(2, 9);
+    let finExpenseId: string | undefined;
+
     // 1. Xodimlarga oylik berildi va bu ferma xarajatlariga qo'shildi
     if (preview.totalEmployeePayout > 0) {
+      finExpenseId = 'fin-sal-' + Math.random().toString(36).substring(2, 9);
       const finExpense: FinanceRecord = {
-        id: 'fin-sal-' + Math.random().toString(36).substring(2, 9),
+        id: finExpenseId,
         farm_id: farmId,
         type: 'xarajat',
         category: 'ish_haqi',
         amount_uzs: preview.totalEmployeePayout,
         date: today,
         description: `${preview.periodType === 'avans' ? '1-davr: Avans to\'lovi (1-15 kunlari)' : '2-davr: Oylik to\'lovi (16-31 kunlari)'} - ${preview.employeesPaid.length} nafar xodimga ish haqi`,
-        linked_entity_type: 'manual',
+        linked_entity_type: 'payroll_run',
+        linked_entity_id: runId,
         created_by: this.state.currentUser.full_name,
         created_at: new Date().toISOString(),
       };
@@ -2983,8 +3119,10 @@ export class PodachiBackendEngine {
 
     // 2. Administratorga sof foyda ulushi / dividend (Daromad ham xarajat ham deb hisoblanmaydi, lekin ferma balansidan yechiladi)
     const runRecord: PayrollRunRecord = {
-      id: 'payroll-run-' + Math.random().toString(36).substring(2, 9),
+      id: runId,
       farm_id: farmId,
+      finance_record_id: finExpenseId,
+      is_cancelled: false,
       period_year_month: preview.periodYearMonth,
       period_type: preview.periodType,
       period_label: preview.periodLabel,

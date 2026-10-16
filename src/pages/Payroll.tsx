@@ -17,6 +17,7 @@ import {
   Wallet,
   Clock,
   Sparkles,
+  RotateCcw,
 } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
@@ -40,6 +41,8 @@ export const Payroll: React.FC = () => {
   const [reserveCycles, setReserveCycles] = useState<number>(initialCycles);
   const [selectedPeriodType, setSelectedPeriodType] = useState<PayrollPeriodType>(periodInfo.periodType);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isCancelConfirmModalOpen, setIsCancelConfirmModalOpen] = useState(false);
+  const [cancellingRunId, setCancellingRunId] = useState<string | null>(null);
   const [isEditSalaryModalOpen, setIsEditSalaryModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingSalary, setEditingSalary] = useState<number>(0);
@@ -110,10 +113,27 @@ export const Payroll: React.FC = () => {
     }
   };
 
-  // Monthly status checks
+  const handleOpenCancelRun = (runId: string) => {
+    setCancellingRunId(runId);
+    setIsCancelConfirmModalOpen(true);
+  };
+
+  const handleConfirmCancelRun = () => {
+    if (!cancellingRunId) return;
+    try {
+      backendEngine.cancelPayrollRun(cancellingRunId);
+      showToast("Oylik to'lovi muvaffaqiyatli bekor qilindi. Mablag' ferma balansiga to'liq qaytarildi va oylik berish tugmasi yana faollashdi.", 'success');
+      setIsCancelConfirmModalOpen(false);
+      setCancellingRunId(null);
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  // Monthly status checks (faqat bekor qilinmagan faol to'lovlar tekshiriladi)
   const currentMonthYear = new Date().toISOString().slice(0, 7);
-  const avansRunThisMonth = payrollRuns.find(r => r.period_year_month === currentMonthYear && r.period_type === 'avans');
-  const oylikRunThisMonth = payrollRuns.find(r => r.period_year_month === currentMonthYear && r.period_type === 'oylik');
+  const avansRunThisMonth = payrollRuns.find(r => r.period_year_month === currentMonthYear && r.period_type === 'avans' && !r.is_cancelled);
+  const oylikRunThisMonth = payrollRuns.find(r => r.period_year_month === currentMonthYear && r.period_type === 'oylik' && !r.is_cancelled);
 
   return (
     <div className="space-y-6">
@@ -492,39 +512,71 @@ export const Payroll: React.FC = () => {
                   <th className="py-3 px-6">OZUQA ZAXIRASI</th>
                   <th className="py-3 px-6">RAHBAR SOF FOYDASI</th>
                   <th className="py-3 px-6">QOLGAN BALANS</th>
-                  <th className="py-3 px-6 text-right">MAS'UL</th>
+                  <th className="py-3 px-6">MAS'UL</th>
+                  <th className="py-3 px-6 text-right">AMALLAR</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-forest-900/30">
                 {payrollRuns.map(run => (
-                  <tr key={run.id} className="hover:bg-slate-50/60 dark:hover:bg-forest-900/20 transition">
+                  <tr
+                    key={run.id}
+                    className={`transition ${
+                      run.is_cancelled
+                        ? 'bg-rose-50/30 dark:bg-rose-950/20 opacity-75'
+                        : 'hover:bg-slate-50/60 dark:hover:bg-forest-900/20'
+                    }`}
+                  >
                     <td className="py-3.5 px-6">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 dark:text-white">{run.payment_date}</span>
-                        <Badge size="sm" variant={run.period_type === 'avans' ? 'emerald' : 'forest'}>
-                          {run.period_type === 'avans' ? '1-davr: Avans' : '2-davr: Oylik'}
+                        <span className={`font-bold ${run.is_cancelled ? 'line-through text-slate-500' : 'text-slate-900 dark:text-white'}`}>
+                          {run.payment_date}
+                        </span>
+                        <Badge size="sm" variant={run.is_cancelled ? 'rose' : run.period_type === 'avans' ? 'emerald' : 'forest'}>
+                          {run.is_cancelled ? 'Bekor qilingan' : run.period_type === 'avans' ? '1-davr: Avans' : '2-davr: Oylik'}
                         </Badge>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">{run.period_label}</p>
                     </td>
-                    <td className="py-3.5 px-6 font-bold text-rose-600 dark:text-rose-400">
+                    <td className={`py-3.5 px-6 font-bold ${run.is_cancelled ? 'line-through text-slate-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       -{run.total_employee_payout_uzs.toLocaleString()} so'm
                       <span className="block text-[10px] text-slate-400">{run.employees_paid.length} nafar xodim</span>
                     </td>
-                    <td className="py-3.5 px-6 font-bold text-amber-600 dark:text-amber-400">
+                    <td className={`py-3.5 px-6 font-bold ${run.is_cancelled ? 'line-through text-slate-400' : 'text-amber-600 dark:text-amber-400'}`}>
                       {run.feed_reserve_retained_uzs.toLocaleString()} so'm
                       <span className="block text-[10px] text-slate-400">{run.feed_reserve_cycles || 2}x zaxira</span>
                     </td>
-                    <td className="py-3.5 px-6 font-bold text-emerald-600 dark:text-emerald-400">
+                    <td className={`py-3.5 px-6 font-bold ${run.is_cancelled ? 'line-through text-slate-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                       {run.admin_payout_uzs > 0 ? `+${run.admin_payout_uzs.toLocaleString()} so'm` : '0 so\'m'}
                       <span className="block text-[10px] text-slate-400">Sof foyda ulushi</span>
                     </td>
-                    <td className="py-3.5 px-6 font-mono font-bold text-slate-800 dark:text-slate-200">
+                    <td className={`py-3.5 px-6 font-mono font-bold ${run.is_cancelled ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>
                       {run.farm_balance_after_run_uzs.toLocaleString()} so'm
                     </td>
-                    <td className="py-3.5 px-6 text-right">
+                    <td className="py-3.5 px-6">
                       <span className="font-bold text-slate-800 dark:text-slate-200">{run.created_by_name}</span>
                       <span className="block text-[10px] text-slate-400">{backendEngine.getRoleTitle(run.created_by_role)}</span>
+                      {run.is_cancelled && (
+                        <span className="block text-[10px] text-rose-500 font-semibold mt-0.5">
+                          Bekor qilindi ({run.cancelled_at?.slice(0, 10)})
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-6 text-right">
+                      {!run.is_cancelled ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCancelRun(run.id)}
+                          className="px-2.5 py-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-lg border border-rose-200 dark:border-rose-900/40 transition inline-flex items-center gap-1 shadow-xs"
+                          title="Oylik to'lovini bekor qilish va balansga qaytarish"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Bekor qilish</span>
+                        </button>
+                      ) : (
+                        <Badge variant="rose" size="sm">
+                          Bekor qilingan
+                        </Badge>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -644,6 +696,56 @@ export const Payroll: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Cancel Payroll Run Confirmation Modal */}
+      <Modal
+        isOpen={isCancelConfirmModalOpen}
+        onClose={() => {
+          setIsCancelConfirmModalOpen(false);
+          setCancellingRunId(null);
+        }}
+        title="Oylik To'lovini Bekor Qilish"
+        subtitle="Ushbu amal to'lovni bekor qilib, mablag'ni ferma balansiga to'liq qaytaradi"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold">Oylik to'lovini bekor qilishni tasdiqlaysizmi?</p>
+              <p className="text-[11px] leading-relaxed text-rose-800 dark:text-rose-300">
+                To'lov bekor qilinganda:
+              </p>
+              <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-rose-800 dark:text-rose-300">
+                <li>Xodimlar ish haqi xarajati moliya jurnalida bekor qilinadi</li>
+                <li>Xodimlar maoshi va rahbarning dividend mablag'i to'liq ferma balansiga qaytariladi</li>
+                <li>Ushbu davr uchun <strong>"Oylikni to'lash" tugmasi yana faollashadi</strong> va qayta to'lash mumkin bo'ladi</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-forest-800">
+            <button
+              type="button"
+              onClick={() => {
+                setIsCancelConfirmModalOpen(false);
+                setCancellingRunId(null);
+              }}
+              className="px-4 py-2 border border-slate-200 dark:border-forest-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-forest-900/40 transition"
+            >
+              Orqaga
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmCancelRun}
+              className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Ha, bekor qilinsin
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

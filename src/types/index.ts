@@ -226,7 +226,7 @@ export interface FinanceRecord {
   amount_uzs: number;
   date: string;
   description: string;
-  linked_entity_type?: 'marketplace_sale' | 'feed_purchase' | 'manual';
+  linked_entity_type?: 'marketplace_sale' | 'feed_purchase' | 'payroll_run' | 'manual';
   linked_entity_id?: string;
   created_by: string;
   created_at: string;
@@ -405,6 +405,10 @@ export interface PayrollRunRecord {
   admin_user_name?: string;
   admin_payout_uzs: number; // Rahbar sof foyda ulushi (dividend)
   farm_balance_after_run_uzs: number;
+  finance_record_id?: string;
+  is_cancelled?: boolean;
+  cancelled_at?: string;
+  cancelled_by?: string;
   created_by_name: string;
   created_by_role: UserRole;
   created_at: string;

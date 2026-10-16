@@ -77,11 +77,22 @@ export const UserManagement: React.FC = () => {
       </div>
 
       {!isAdmin && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex items-center gap-3 text-amber-900 dark:text-amber-200">
-          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-          <p className="text-xs">
-            Sizning rolingiz: <strong className="capitalize">{currentRole}</strong>. A'zolik so'rovlarini qabul qilish va rollarni o'zgartirish faqat <strong>Administrator</strong> tomonidan amalga oshiriladi.
-          </p>
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <p className="text-xs">
+              Sizning rolingiz: <strong className="capitalize">{roleLabels[currentRole]?.label || currentRole}</strong>. A'zolik so'rovlarini qabul qilish va rollarni o'zgartirish faqat <strong>Administrator</strong> tomonidan amalga oshiriladi.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              backendEngine.restoreAdminRole();
+              showToast("Administratorlik roli muvaffaqiyatli qayta tiklandi!", 'success');
+            }}
+            className="px-3.5 py-1.5 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-bold transition shadow-xs whitespace-nowrap self-start sm:self-auto"
+          >
+            Administratorlikni tiklash
+          </button>
         </div>
       )}
 
@@ -233,16 +244,22 @@ export const UserManagement: React.FC = () => {
                   </td>
                   {isAdmin && (
                     <td className="py-3 px-4 text-right">
-                      <select
-                        value={member.role}
-                        onChange={e => handleRoleChange(member.id, e.target.value as UserRole)}
-                        className="px-2.5 py-1 bg-white dark:bg-[#0B1713] text-slate-900 dark:text-white border border-slate-300 dark:border-forest-800/70 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-forest-600"
-                      >
-                        <option value="admin">Administrator</option>
-                        <option value="manager">Menejer</option>
-                        <option value="veterinarian">Veterinar</option>
-                        <option value="viewer">Kuzatuvchi</option>
-                      </select>
+                      {member.user_id === state.currentUser.id ? (
+                        <span className="text-[11px] text-forest-700 dark:text-emerald-400 font-semibold italic bg-forest-50 dark:bg-forest-950/60 px-2.5 py-1 rounded-lg border border-forest-200 dark:border-forest-800 select-none">
+                          Sizning hisobingiz (O'zgarmas)
+                        </span>
+                      ) : (
+                        <select
+                          value={member.role}
+                          onChange={e => handleRoleChange(member.id, e.target.value as UserRole)}
+                          className="px-2.5 py-1 bg-white dark:bg-[#0B1713] text-slate-900 dark:text-white border border-slate-300 dark:border-forest-800/70 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-forest-600"
+                        >
+                          <option value="admin">Administrator</option>
+                          <option value="manager">Menejer</option>
+                          <option value="veterinarian">Veterinar</option>
+                          <option value="viewer">Kuzatuvchi</option>
+                        </select>
+                      )}
                     </td>
                   )}
                 </tr>

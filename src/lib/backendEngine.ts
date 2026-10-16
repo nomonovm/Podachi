@@ -135,6 +135,35 @@ export function loadState(): PodachiState {
       });
     }
 
+    // Auto-repair: Ferma administratorsiz qolmasligi va asosiy admin rolini qayta tiklash
+    let stateWasRepaired = false;
+    if (Array.isArray(parsed.farmMembers)) {
+      parsed.farmMembers.forEach((m: FarmMember) => {
+        if ((m.user_email === 'admin@podachi.uz' || m.user_id === 'user-admin-1') && m.role !== 'admin') {
+          m.role = 'admin';
+          stateWasRepaired = true;
+        }
+      });
+      if (Array.isArray(parsed.farms)) {
+        parsed.farms.forEach((f: Farm) => {
+          const hasAdmin = parsed.farmMembers.some((m: FarmMember) => m.farm_id === f.id && m.role === 'admin' && m.status === 'active');
+          if (!hasAdmin) {
+            const ownerOrFirst = parsed.farmMembers.find((m: FarmMember) => m.farm_id === f.id);
+            if (ownerOrFirst && ownerOrFirst.role !== 'admin') {
+              ownerOrFirst.role = 'admin';
+              stateWasRepaired = true;
+            }
+          }
+        });
+      }
+    }
+
+    if (stateWasRepaired) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      } catch (err) {}
+    }
+
     return parsed;
   } catch (e) {
     console.error('Failed to load state from localStorage', e);
@@ -2123,6 +2152,21 @@ export class PodachiBackendEngine {
     const member = this.state.farmMembers.find(m => m.id === memberId && m.farm_id === this.state.currentFarmId);
     if (!member) throw new Error('A\'zo topilmadi.');
 
+    // 1. Administrator o'zining rolini o'zi o'zgartira olmaydi
+    if (member.user_id === this.state.currentUser.id) {
+      throw new Error("Xavfsizlik qoidasi: Administrator o'zining rolini o'zgartira olmaydi!");
+    }
+
+    // 2. Ferma yagona administratorsiz qolib ketishi mumkin emas
+    if (member.role === 'admin' && newRole !== 'admin') {
+      const activeAdmins = this.state.farmMembers.filter(
+        m => m.farm_id === this.state.currentFarmId && m.role === 'admin' && m.id !== member.id && m.status === 'active'
+      );
+      if (activeAdmins.length === 0) {
+        throw new Error("Ferma administratorsiz qolishi mumkin emas! Avval boshqa a'zoga administrator huquqini bering.");
+      }
+    }
+
     const oldRole = member.role;
     member.role = newRole;
 
@@ -2132,6 +2176,38 @@ export class PodachiBackendEngine {
       result: 'SUCCESS',
       resource_name: 'farm_members',
       details: `${member.user_name} roli o'zgartirildi: ${oldRole} -> ${newRole}`,
+    });
+
+    this.notify();
+  }
+
+  public restoreAdminRole(): void {
+    // Qaysi hisobda bo'lishidan qat'i nazar administratorlikni zudlik bilan qayta tiklaydi
+    const curUserId = this.state.currentUser.id;
+    let member = this.state.farmMembers.find(
+      m => m.user_id === curUserId && m.farm_id === this.state.currentFarmId
+    );
+
+    if (!member) {
+      member = this.state.farmMembers.find(
+        m => m.user_email === 'admin@podachi.uz' && m.farm_id === this.state.currentFarmId
+      );
+    }
+
+    if (member) {
+      member.role = 'admin';
+    }
+
+    // Shuningdek, asosiy admin@podachi.uz a'zoligini ham tiklash
+    const mainAdmin = this.state.farmMembers.find(m => m.user_email === 'admin@podachi.uz');
+    if (mainAdmin) mainAdmin.role = 'admin';
+
+    this.logAudit({
+      farm_id: this.state.currentFarmId,
+      action_type: 'USER_ROLE_CHANGE',
+      result: 'SUCCESS',
+      resource_name: 'farm_members',
+      details: `Administratorlik roli muvaffaqiyatli qayta tiklandi`,
     });
 
     this.notify();

@@ -201,7 +201,7 @@ export const Finance: React.FC = () => {
             {farmBalance.toLocaleString()} so'm
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            Likvid hisob (Rahbar sof foyda ulushlari yechilganidan so'ng)
+            Likvid hisob
           </p>
         </div>
 

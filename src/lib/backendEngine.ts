@@ -25,6 +25,12 @@ import {
   AnimalCatalogItem,
   RegisterData,
   DailyFarmCycleSummary,
+  EmployeeSalaryConfig,
+  PayrollPeriodType,
+  EmployeePayoutItem,
+  PayrollRunRecord,
+  FarmFinancialSummary,
+  AnimalDailyFeedNorm,
 } from '../types';
 
 import {
@@ -42,6 +48,108 @@ import {
   INITIAL_MARKETPLACE_OFFERS,
   INITIAL_AUDIT_LOGS,
 } from './initialData';
+
+export const UNIVERSAL_ANIMAL_FEED_NORMS: Record<string, AnimalDailyFeedNorm> = {
+  qoramol: {
+    species: 'Qoramol',
+    category: 'Yirik shoxli',
+    beda_daily_boglam: 0.5,
+    yem_daily_kg: 4.0,
+    silos_daily_tonna: 0.015,
+    milk_daily_liters: 20,
+    milk_price_per_liter_uzs: 5500,
+  },
+  qoy: {
+    species: 'Qo\'y',
+    category: 'Mayda tuyoqli',
+    beda_daily_boglam: 0.15,
+    yem_daily_kg: 0.6,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 0,
+    milk_price_per_liter_uzs: 0,
+  },
+  echki: {
+    species: 'Echki',
+    category: 'Mayda tuyoqli',
+    beda_daily_boglam: 0.12,
+    yem_daily_kg: 0.4,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 1.8,
+    milk_price_per_liter_uzs: 10000,
+  },
+  ot: {
+    species: 'Ot',
+    category: 'Otsimon',
+    beda_daily_boglam: 0.4,
+    yem_daily_kg: 3.0,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 0,
+    milk_price_per_liter_uzs: 0,
+  },
+  tuya: {
+    species: 'Tuya',
+    category: 'Tuyasimon',
+    beda_daily_boglam: 0.6,
+    yem_daily_kg: 3.5,
+    silos_daily_tonna: 0.01,
+    milk_daily_liters: 4.0,
+    milk_price_per_liter_uzs: 25000,
+  },
+  eshak: {
+    species: 'Eshak',
+    category: 'Otsimon',
+    beda_daily_boglam: 0.2,
+    yem_daily_kg: 1.0,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 0,
+    milk_price_per_liter_uzs: 0,
+  },
+  tovuq: {
+    species: 'Tovuq',
+    category: 'Parranda',
+    beda_daily_boglam: 0,
+    yem_daily_kg: 0.12,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 0,
+    milk_price_per_liter_uzs: 0,
+  },
+  ordak: {
+    species: 'O\'rdak',
+    category: 'Parranda',
+    beda_daily_boglam: 0,
+    yem_daily_kg: 0.18,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 0,
+    milk_price_per_liter_uzs: 0,
+  },
+  goz: {
+    species: 'G\'oz',
+    category: 'Parranda',
+    beda_daily_boglam: 0.02,
+    yem_daily_kg: 0.25,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 0,
+    milk_price_per_liter_uzs: 0,
+  },
+  kurka: {
+    species: 'Kurka',
+    category: 'Parranda',
+    beda_daily_boglam: 0,
+    yem_daily_kg: 0.25,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 0,
+    milk_price_per_liter_uzs: 0,
+  },
+  quyon: {
+    species: 'Quyon',
+    category: 'Boshqa',
+    beda_daily_boglam: 0.03,
+    yem_daily_kg: 0.15,
+    silos_daily_tonna: 0,
+    milk_daily_liters: 0,
+    milk_price_per_liter_uzs: 0,
+  },
+};
 
 const STORAGE_KEY = 'podachi_state_v1';
 
@@ -66,6 +174,8 @@ export interface PodachiState {
   marketplaceRequests: MarketplaceRequest[];
   marketplaceOffers: MarketplaceOffer[];
   auditLogs: AuditLog[];
+  employeeSalaries?: Record<string, number>;
+  payrollRuns?: PayrollRunRecord[];
 }
 
 export function getInitialState(): PodachiState {
@@ -90,6 +200,11 @@ export function getInitialState(): PodachiState {
     marketplaceRequests: INITIAL_MARKETPLACE_REQUESTS,
     marketplaceOffers: INITIAL_MARKETPLACE_OFFERS,
     auditLogs: INITIAL_AUDIT_LOGS,
+    employeeSalaries: {
+      'user-manager-1': 9000000,
+      'user-vet-1': 7500000,
+    },
+    payrollRuns: [],
   };
 }
 
@@ -101,6 +216,21 @@ export function loadState(): PodachiState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return getInitialState();
     const parsed = JSON.parse(raw);
+
+    let stateWasRepaired = false;
+
+    if (!parsed.employeeSalaries) {
+      parsed.employeeSalaries = {
+        'user-manager-1': 9000000,
+        'user-vet-1': 7500000,
+      };
+      stateWasRepaired = true;
+    }
+
+    if (!Array.isArray(parsed.payrollRuns)) {
+      parsed.payrollRuns = [];
+      stateWasRepaired = true;
+    }
 
     // Auto-sync missing feed purchases into finances if any exist in feedTransactions
     if (Array.isArray(parsed.feedTransactions) && Array.isArray(parsed.finances)) {
@@ -136,11 +266,15 @@ export function loadState(): PodachiState {
     }
 
     // Auto-repair: Ferma administratorsiz qolmasligi va asosiy admin rolini qayta tiklash
-    let stateWasRepaired = false;
     if (Array.isArray(parsed.farmMembers)) {
       parsed.farmMembers.forEach((m: FarmMember) => {
         if ((m.user_email === 'admin@podachi.uz' || m.user_id === 'user-admin-1') && m.role !== 'admin') {
           m.role = 'admin';
+          stateWasRepaired = true;
+        }
+        // Upgrade Bobur Rustamov to head_manager
+        if ((m.user_email === 'manager@podachi.uz' || m.user_id === 'user-manager-1') && m.role === 'manager') {
+          m.role = 'head_manager';
           stateWasRepaired = true;
         }
       });
@@ -151,6 +285,14 @@ export function loadState(): PodachiState {
             const ownerOrFirst = parsed.farmMembers.find((m: FarmMember) => m.farm_id === f.id);
             if (ownerOrFirst && ownerOrFirst.role !== 'admin') {
               ownerOrFirst.role = 'admin';
+              stateWasRepaired = true;
+            }
+          }
+          // Ensure only 1 active head_manager per farm
+          const headManagers = parsed.farmMembers.filter((m: FarmMember) => m.farm_id === f.id && m.role === 'head_manager' && m.status === 'active');
+          if (headManagers.length > 1) {
+            for (let i = 1; i < headManagers.length; i++) {
+              headManagers[i].role = 'manager';
               stateWasRepaired = true;
             }
           }
@@ -423,10 +565,12 @@ export class PodachiBackendEngine {
     const r = role || this.getCurrentRole();
     const roleTitles: Record<string, string> = {
       admin: 'Administrator',
-      manager: 'Bosh Menejer',
+      head_manager: 'Bosh Menejer',
+      manager: 'Menejer',
       veterinarian: 'Bosh Veterinar',
-      worker: 'Chorvador',
+      viewer: 'Kuzatuvchi',
       watcher: 'Kuzatuvchi',
+      worker: 'Chorvador',
     };
     return roleTitles[r] || r;
   }
@@ -640,6 +784,15 @@ export class PodachiBackendEngine {
     if (!req) throw new Error('So\'rov topilmadi.');
 
     if (action === 'accept') {
+      if (assignedRole === 'head_manager') {
+        const existingHead = this.state.farmMembers.find(
+          m => m.farm_id === req.farm_id && m.role === 'head_manager' && m.status === 'active'
+        );
+        if (existingHead) {
+          throw new Error(`Fermada faqat bitta Bosh Menejer bo'lishi mumkin! Hozirgi Bosh Menejer: ${existingHead.user_name}. Boshqa rol (masalan, Menejer) tanlang.`);
+        }
+      }
+
       req.status = 'accepted';
       req.reviewed_by = this.state.currentUser.id;
       req.reviewed_at = new Date().toISOString();
@@ -720,7 +873,7 @@ export class PodachiBackendEngine {
     health_status: AnimalGroup['health_status'];
     notes?: string;
   }): AnimalGroup {
-    this.checkPermission(['admin', 'manager'], 'animal_groups', 'Chorva guruhi yaratish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'animal_groups', 'Chorva guruhi yaratish');
 
     if (data.initial_head_count < 0) {
       throw new Error("Chorva soni manfiy bo'lishi mumkin emas.");
@@ -782,7 +935,7 @@ export class PodachiBackendEngine {
     notes?: string;
     total_price_uzs?: number;
   }): AnimalMovement {
-    this.checkPermission(['admin', 'manager'], 'animal_movements', 'Chorva harakati qayd etish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'animal_movements', 'Chorva harakati qayd etish');
 
     const group = this.state.animalGroups.find(g => g.id === data.group_id);
     if (!group) throw new Error('Chorva guruhi topilmadi.');
@@ -860,7 +1013,7 @@ export class PodachiBackendEngine {
   }
 
   public cancelAnimalMovement(movementId: string): void {
-    this.checkPermission(['admin', 'manager'], 'animal_movements', 'Chorva harakatini bekor qilish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'animal_movements', 'Chorva harakatini bekor qilish');
 
     const mov = this.state.movements.find(m => m.id === movementId);
     if (!mov) throw new Error('Harakat qaydi topilmadi.');
@@ -988,7 +1141,7 @@ export class PodachiBackendEngine {
     contact_phone: string;
     contact_name: string;
   }): MarketplaceListing {
-    this.checkPermission(['admin', 'manager'], 'marketplace_listings', 'Sotuv e\'loni berish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'marketplace_listings', 'Sotuv e\'loni berish');
 
     const group = this.state.animalGroups.find(g => g.id === data.group_id);
     if (!group) throw new Error('Chorva guruhi topilmadi.');
@@ -1068,7 +1221,7 @@ export class PodachiBackendEngine {
     buyer_phone: string;
     notes?: string;
   }): CompletedSale {
-    this.checkPermission(['admin', 'manager'], 'completed_sales', 'Sotuvni yakunlash');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'completed_sales', 'Sotuvni yakunlash');
 
     const listing = this.state.marketplaceListings.find(l => l.id === data.listing_id);
     if (!listing) throw new Error('E\'lon topilmadi.');
@@ -1177,7 +1330,7 @@ export class PodachiBackendEngine {
   }
 
   public closeMarketplaceListing(listingId: string): void {
-    this.checkPermission(['admin', 'manager'], 'marketplace_listings', 'E\'lonni yopish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'marketplace_listings', 'E\'lonni yopish');
 
     const listing = this.state.marketplaceListings.find(l => l.id === listingId);
     if (!listing) throw new Error('E\'lon topilmadi.');
@@ -1294,7 +1447,7 @@ export class PodachiBackendEngine {
     notes?: string;
     status: VeterinaryRecord['status'];
   }): VeterinaryRecord {
-    this.checkPermission(['admin', 'manager', 'veterinarian'], 'health_records', 'Veterinariya qaydini kiritish');
+    this.checkPermission(['admin', 'head_manager', 'manager', 'veterinarian'], 'health_records', 'Veterinariya qaydini kiritish');
 
     const group = this.state.animalGroups.find(g => g.id === data.group_id);
     if (!group) throw new Error('Chorva guruhi topilmadi.');
@@ -1345,7 +1498,7 @@ export class PodachiBackendEngine {
     min_threshold: number;
     unit_price_uzs?: number;
   }): FeedItem {
-    this.checkPermission(['admin', 'manager'], 'feed_inventory', 'Yangi ozuqa qo\'shish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'feed_inventory', 'Yangi ozuqa qo\'shish');
 
     const item: FeedItem = {
       id: 'feed-' + Math.random().toString(36).substring(2, 9),
@@ -1419,7 +1572,7 @@ export class PodachiBackendEngine {
     total_cost_uzs?: number;
     notes?: string;
   }): FeedTransaction {
-    this.checkPermission(['admin', 'manager'], 'feed_inventory', 'Ozuqa kirim/chiqim amali');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'feed_inventory', 'Ozuqa kirim/chiqim amali');
 
     const feed = this.state.feedItems.find(f => f.id === data.feed_id);
     if (!feed) throw new Error('Ozuqa topilmadi.');
@@ -1492,6 +1645,148 @@ export class PodachiBackendEngine {
     return tx;
   }
 
+  // --- Universal Animal Feed Calculation Formula (Ax + By + Cz = E) ---
+  public getNormalizedSpeciesKey(species: string): string {
+    const s = species.toLowerCase().replace(/['`’ʼ]/g, '');
+    if (s.includes('qora') || s.includes('mol') || s.includes('sigir') || s.includes('buqa')) return 'qoramol';
+    if (s.includes('qoy')) return 'qoy';
+    if (s.includes('echki')) return 'echki';
+    if (s.includes('ot') || s.includes('yilqi')) return 'ot';
+    if (s.includes('tuya')) return 'tuya';
+    if (s.includes('eshak')) return 'eshak';
+    if (s.includes('tovuq') || s.includes('tuxum')) return 'tovuq';
+    if (s.includes('ordak')) return 'ordak';
+    if (s.includes('goz')) return 'goz';
+    if (s.includes('kurka')) return 'kurka';
+    if (s.includes('quyon')) return 'quyon';
+    return 'boshqa';
+  }
+
+  public getSpeciesFeedNorm(species: string): AnimalDailyFeedNorm {
+    const key = this.getNormalizedSpeciesKey(species);
+    return UNIVERSAL_ANIMAL_FEED_NORMS[key] || {
+      species,
+      category: 'Boshqa',
+      beda_daily_boglam: 0.1,
+      yem_daily_kg: 0.5,
+      silos_daily_tonna: 0,
+      milk_daily_liters: 0,
+      milk_price_per_liter_uzs: 0,
+    };
+  }
+
+  public calculateFarmFeedFormula(farmGroups: AnimalGroup[]): {
+    totalBedaDaily: number;
+    totalYemDailyKg: number;
+    totalSilosDailyTonna: number;
+    totalHeads: number;
+    existingSpeciesBreakdown: {
+      species: string;
+      category: string;
+      headCount: number;
+      normBedaBoglam: number;
+      normYemKg: number;
+      normSilosTonna: number;
+      totalBedaBoglam: number;
+      totalYemKg: number;
+      totalSilosTonna: number;
+    }[];
+  } {
+    // 1. Fermadagi barcha hayvonlarni turlari bo'yicha guruhlash (mavjud sonlar: x, y, z...)
+    const speciesHeadCounts: Record<string, { count: number; displayName: string }> = {};
+
+    farmGroups.forEach(g => {
+      const key = this.getNormalizedSpeciesKey(g.species);
+      if (!speciesHeadCounts[key]) {
+        speciesHeadCounts[key] = { count: 0, displayName: g.species };
+      }
+      speciesHeadCounts[key].count += g.current_head_count;
+    });
+
+    let totalBeda = 0;
+    let totalYem = 0;
+    let totalSilos = 0;
+    let totalHeads = 0;
+
+    const existingSpeciesBreakdown: {
+      species: string;
+      category: string;
+      headCount: number;
+      normBedaBoglam: number;
+      normYemKg: number;
+      normSilosTonna: number;
+      totalBedaBoglam: number;
+      totalYemKg: number;
+      totalSilosTonna: number;
+    }[] = [];
+
+    // 2. Universal formula: Ax + By + Cz = E
+    // Barcha hayvon turlari hisobga olinadi. Fermada yo'q bo'lsa (By kabi holat), soni = 0 deb hisoblanadi.
+    // Natijada faqat fermada mavjud bo'lgan (soni > 0) turlar ro'yxatda chiqariladi.
+    Object.entries(UNIVERSAL_ANIMAL_FEED_NORMS).forEach(([key, norm]) => {
+      const entry = speciesHeadCounts[key];
+      const count = entry ? entry.count : 0; // Agar fermada yo'q bo'lsa: 0
+
+      if (count > 0) {
+        totalHeads += count;
+        const subBeda = Math.round(count * norm.beda_daily_boglam * 10) / 10;
+        const subYem = Math.round(count * norm.yem_daily_kg * 10) / 10;
+        const subSilos = Math.round(count * norm.silos_daily_tonna * 100) / 100;
+
+        totalBeda += subBeda;
+        totalYem += subYem;
+        totalSilos += subSilos;
+
+        existingSpeciesBreakdown.push({
+          species: entry ? entry.displayName : norm.species,
+          category: norm.category,
+          headCount: count,
+          normBedaBoglam: norm.beda_daily_boglam,
+          normYemKg: norm.yem_daily_kg,
+          normSilosTonna: norm.silos_daily_tonna,
+          totalBedaBoglam: subBeda,
+          totalYemKg: subYem,
+          totalSilosTonna: subSilos,
+        });
+      }
+    });
+
+    // Standart katalogdan tashqari boshqa kiritilgan har qanday zot/turlar
+    Object.entries(speciesHeadCounts).forEach(([key, val]) => {
+      if (!UNIVERSAL_ANIMAL_FEED_NORMS[key] && val.count > 0) {
+        const norm = this.getSpeciesFeedNorm(val.displayName);
+        totalHeads += val.count;
+        const subBeda = Math.round(val.count * norm.beda_daily_boglam * 10) / 10;
+        const subYem = Math.round(val.count * norm.yem_daily_kg * 10) / 10;
+        const subSilos = Math.round(val.count * norm.silos_daily_tonna * 100) / 100;
+
+        totalBeda += subBeda;
+        totalYem += subYem;
+        totalSilos += subSilos;
+
+        existingSpeciesBreakdown.push({
+          species: val.displayName,
+          category: norm.category,
+          headCount: val.count,
+          normBedaBoglam: norm.beda_daily_boglam,
+          normYemKg: norm.yem_daily_kg,
+          normSilosTonna: norm.silos_daily_tonna,
+          totalBedaBoglam: subBeda,
+          totalYemKg: subYem,
+          totalSilosTonna: subSilos,
+        });
+      }
+    });
+
+    return {
+      totalBedaDaily: Math.round(totalBeda),
+      totalYemDailyKg: Math.round(totalYem),
+      totalSilosDailyTonna: Math.round(totalSilos * 10) / 10,
+      totalHeads,
+      existingSpeciesBreakdown,
+    };
+  }
+
   // --- Daily Farm Cycle Preview (Hisob-kitobni oldindan ko'rish, yangi yozuv yaratmaydi) ---
   public calculateDailyFarmCyclePreview(): DailyFarmCycleSummary {
     const today = new Date().toISOString().split('T')[0];
@@ -1533,28 +1828,12 @@ export class PodachiBackendEngine {
     const goatRevenue = goatMilkLiters * goatPricePerLiter;
     const totalMilkRevenue = cowRevenue + goatRevenue;
 
-    // 2. Mavjud yemdan kunlik sarfni hisoblash
-    let totalCows = 0;
-    let totalSheep = 0;
-    let totalGoats = 0;
-    let totalHorses = 0;
-    let otherAnimals = 0;
-
-    farmGroups.forEach(g => {
-      const sp = g.species.toLowerCase();
-      if (sp.includes('qoramol')) totalCows += g.current_head_count;
-      else if (sp.includes('qo\'y') || sp.includes('qoy')) totalSheep += g.current_head_count;
-      else if (sp.includes('echki')) totalGoats += g.current_head_count;
-      else if (sp.includes('ot')) totalHorses += g.current_head_count;
-      else otherAnimals += g.current_head_count;
-    });
-
-    const totalHeads = totalCows + totalSheep + totalGoats + totalHorses + otherAnimals;
-
-    const bedaDaily = Math.round(totalCows * 0.5 + totalSheep * 0.15 + totalGoats * 0.12 + totalHorses * 0.4 + otherAnimals * 0.1);
-    const yemDailyKg = Math.round(totalCows * 4 + totalSheep * 0.6 + totalGoats * 0.4 + totalHorses * 3 + otherAnimals * 0.3);
-    const silosDailyTonna = Math.round((totalCows * 0.015) * 10) / 10;
-    const vitaminDailyQop = totalHeads > 0 ? 1 : 0;
+    // 2. Mavjud yemdan universal formula (Ax + By + Cz = E) bo'yicha kunlik sarfni hisoblash
+    const feedFormula = this.calculateFarmFeedFormula(farmGroups);
+    const bedaDaily = Math.round(feedFormula.totalBedaDaily);
+    const yemDailyKg = Math.round(feedFormula.totalYemDailyKg);
+    const silosDailyTonna = Math.round(feedFormula.totalSilosDailyTonna * 10) / 10;
+    const vitaminDailyQop = feedFormula.totalHeads > 0 ? 1 : 0;
 
     const feedDeductions: { name: string; quantity: number; unit: string; currentStock: number }[] = [];
 
@@ -1670,12 +1949,13 @@ export class PodachiBackendEngine {
       feedDeductions,
       feedReplenishments,
       vetActions,
+      existingSpeciesFeedFormula: feedFormula.existingSpeciesBreakdown,
     };
   }
 
   // --- Daily Farm Cycle (Sut Tushumi, Yem Sarfi va Avto-To'ldirishni Qo'llash va Qaydlarni Saqlash) ---
   public processDailyFarmCycle(): DailyFarmCycleSummary {
-    this.checkPermission(['admin', 'manager', 'veterinarian'], 'daily_cycle', 'Kunlik siklni qayd etish');
+    this.checkPermission(['admin', 'head_manager', 'manager', 'veterinarian'], 'daily_cycle', 'Kunlik siklni qayd etish');
 
     const today = new Date().toISOString().split('T')[0];
     const farmId = this.state.currentFarmId;
@@ -1750,28 +2030,13 @@ export class PodachiBackendEngine {
       });
     }
 
-    // 2. Mavjud yemdan hayvon turi va soniga ko'ra kunlik sarfni ayirish
-    let totalCows = 0;
-    let totalSheep = 0;
-    let totalGoats = 0;
-    let totalHorses = 0;
-    let otherAnimals = 0;
-
-    farmGroups.forEach(g => {
-      const sp = g.species.toLowerCase();
-      if (sp.includes('qoramol')) totalCows += g.current_head_count;
-      else if (sp.includes('qo\'y') || sp.includes('qoy')) totalSheep += g.current_head_count;
-      else if (sp.includes('echki')) totalGoats += g.current_head_count;
-      else if (sp.includes('ot')) totalHorses += g.current_head_count;
-      else otherAnimals += g.current_head_count;
-    });
-
-    const totalHeads = totalCows + totalSheep + totalGoats + totalHorses + otherAnimals;
-
-    const bedaDaily = Math.round(totalCows * 0.5 + totalSheep * 0.15 + totalGoats * 0.12 + totalHorses * 0.4 + otherAnimals * 0.1);
-    const yemDailyKg = Math.round(totalCows * 4 + totalSheep * 0.6 + totalGoats * 0.4 + totalHorses * 3 + otherAnimals * 0.3);
-    const silosDailyTonna = Math.round((totalCows * 0.015) * 10) / 10;
-    const vitaminDailyQop = totalHeads > 0 ? 1 : 0;
+    // 2. Mavjud yemdan universal formula (Ax + By + Cz = E) bo'yicha sarfni ayirish
+    const feedFormula = this.calculateFarmFeedFormula(farmGroups);
+    const bedaDaily = Math.round(feedFormula.totalBedaDaily);
+    const yemDailyKg = Math.round(feedFormula.totalYemDailyKg);
+    const silosDailyTonna = Math.round(feedFormula.totalSilosDailyTonna * 10) / 10;
+    const vitaminDailyQop = feedFormula.totalHeads > 0 ? 1 : 0;
+    const totalHeads = feedFormula.totalHeads;
 
     const feedDeductions: DailyFarmCycleSummary['feedDeductions'] = [];
 
@@ -2040,6 +2305,7 @@ export class PodachiBackendEngine {
       feedDeductions,
       feedReplenishments,
       vetActions,
+      existingSpeciesFeedFormula: feedFormula.existingSpeciesBreakdown,
     };
   }
 
@@ -2056,7 +2322,7 @@ export class PodachiBackendEngine {
     date: string;
     description: string;
   }): FinanceRecord {
-    this.checkPermission(['admin', 'manager'], 'finances', 'Moliya yozuvi kiritish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'finances', 'Moliya yozuvi kiritish');
 
     if (data.amount_uzs <= 0) {
       throw new Error("Summa musbat bo'lishi kerak.");
@@ -2090,7 +2356,7 @@ export class PodachiBackendEngine {
   }
 
   public cancelFinanceRecord(recordId: string): void {
-    this.checkPermission(['admin', 'manager'], 'finances', 'Moliya yozuvini bekor qilish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'finances', 'Moliya yozuvini bekor qilish');
 
     const record = this.state.finances.find(f => f.id === recordId);
     if (!record) throw new Error('Moliya yozuvi topilmadi.');
@@ -2169,6 +2435,18 @@ export class PodachiBackendEngine {
       }
     }
 
+    // 3. Fermada faqat bitta Bosh Menejer bo'lishi mumkin (Menejer roli esa cheklanmagan)
+    if (newRole === 'head_manager') {
+      const existingHead = this.state.farmMembers.find(
+        m => m.farm_id === this.state.currentFarmId && m.id !== member.id && m.role === 'head_manager' && m.status === 'active'
+      );
+      if (existingHead) {
+        throw new Error(
+          `Fermada faqat bitta Bosh Menejer bo'lishi mumkin! Hozirgi Bosh Menejer: ${existingHead.user_name}. Yangi Bosh Menejer tayinlash uchun avval mavjud Bosh Menejer rolini boshqa rolga (masalan, Menejer) o'zgartiring.`
+        );
+      }
+    }
+
     const oldRole = member.role;
     member.role = newRole;
 
@@ -2217,7 +2495,7 @@ export class PodachiBackendEngine {
 
   // --- Animal Breed Catalog Expansion ---
   public addCustomBreed(species: string, breedName: string): void {
-    this.checkPermission(['admin', 'manager'], 'animal_catalog', 'Yangi zot qo\'shish');
+    this.checkPermission(['admin', 'head_manager', 'manager'], 'animal_catalog', 'Yangi zot qo\'shish');
     const catalogItem = this.state.animalCatalog.find(c => c.species.toLowerCase() === species.toLowerCase());
     if (!catalogItem) throw new Error('Hayvon turi topilmadi.');
 
@@ -2234,6 +2512,294 @@ export class PodachiBackendEngine {
       details: `Katalogga yangi zot qo'shildi: ${species} - ${breedName}`,
     });
     this.notify();
+  }
+
+  // --- Payroll & Salary Management ---
+
+  public getFeedReplenishmentCycleCost(farmId?: string): number {
+    const targetFarmId = farmId || this.state.currentFarmId;
+    const farmFeed = this.state.feedItems.filter(f => f.farm_id === targetFarmId);
+    let totalCost = 0;
+    farmFeed.forEach(feed => {
+      let restockQty = 0;
+      if (feed.unit === 'bog\'lam') restockQty = Math.max(500, feed.min_threshold * 3);
+      else if (feed.unit === 'kg') restockQty = Math.max(3000, feed.min_threshold * 2);
+      else if (feed.unit === 'tonna') restockQty = Math.max(10, feed.min_threshold * 2);
+      else if (feed.unit === 'qop') restockQty = Math.max(25, feed.min_threshold * 2);
+      else restockQty = Math.max(50, feed.min_threshold * 2);
+
+      const unitPrice = feed.unit_price_uzs || 30000;
+      totalCost += restockQty * unitPrice;
+    });
+    return totalCost > 0 ? totalCost : 5000000;
+  }
+
+  public getFiveCyclesFeedReserve(farmId?: string): number {
+    return this.getFeedReplenishmentCycleCost(farmId) * 5;
+  }
+
+  public getFarmBalance(farmId?: string): number {
+    const summary = this.getFarmFinancialSummary(farmId);
+    return summary.farmBalance;
+  }
+
+  public getFarmFinancialSummary(farmId?: string): FarmFinancialSummary {
+    const targetFarmId = farmId || this.state.currentFarmId;
+    const farmFinances = this.state.finances.filter(f => f.farm_id === targetFarmId && !f.is_cancelled);
+    const totalRevenue = farmFinances.filter(f => f.type === 'daromad').reduce((sum, f) => sum + f.amount_uzs, 0);
+    const totalExpenses = farmFinances.filter(f => f.type === 'xarajat').reduce((sum, f) => sum + f.amount_uzs, 0);
+    const netProfit = totalRevenue - totalExpenses;
+
+    const totalAdminPayouts = (this.state.payrollRuns || [])
+      .filter(r => r.farm_id === targetFarmId)
+      .reduce((sum, r) => sum + (r.admin_payout_uzs || 0), 0);
+
+    const farmBalance = netProfit - totalAdminPayouts;
+    const singleFeedCycleCost = this.getFeedReplenishmentCycleCost(targetFarmId);
+    const fiveCyclesFeedReserve = singleFeedCycleCost * 5;
+    const adminAvailableSurplus = Math.max(0, farmBalance - fiveCyclesFeedReserve);
+
+    return {
+      totalRevenue,
+      totalExpenses,
+      netProfit,
+      totalAdminPayouts,
+      farmBalance,
+      singleFeedCycleCost,
+      fiveCyclesFeedReserve,
+      adminAvailableSurplus,
+    };
+  }
+
+  public getEmployeeSalaryConfigs(farmId?: string): EmployeeSalaryConfig[] {
+    const targetFarmId = farmId || this.state.currentFarmId;
+    const activeMembers = this.state.farmMembers.filter(
+      m => m.farm_id === targetFarmId && m.status === 'active' && m.role !== 'admin' && m.role !== 'viewer'
+    );
+
+    const defaultSalariesByRole: Record<UserRole, number> = {
+      admin: 0,
+      head_manager: 9000000,
+      manager: 6500000,
+      veterinarian: 7500000,
+      viewer: 0,
+    };
+
+    const salaryMap = this.state.employeeSalaries || {};
+
+    return activeMembers.map(m => {
+      const configuredSalary = salaryMap[m.user_id] ?? salaryMap[m.id];
+      const baseSalary = configuredSalary !== undefined ? configuredSalary : (defaultSalariesByRole[m.role] || 5000000);
+      return {
+        user_id: m.user_id,
+        user_name: m.user_name,
+        user_email: m.user_email,
+        role: m.role,
+        base_monthly_salary_uzs: baseSalary,
+      };
+    });
+  }
+
+  public updateEmployeeBaseSalary(userId: string, newBaseSalaryUzs: number): void {
+    this.checkPermission(['admin', 'head_manager'], 'payroll', 'Xodim oyligini o\'zgartirish');
+    if (newBaseSalaryUzs < 0) throw new Error("Oylik maoshi manfiy bo'lishi mumkin emas.");
+
+    if (!this.state.employeeSalaries) {
+      this.state.employeeSalaries = {};
+    }
+    const salaries = this.state.employeeSalaries as Record<string, number>;
+    salaries[userId] = newBaseSalaryUzs;
+
+    const user = this.state.users.find(u => u.id === userId);
+    this.logAudit({
+      farm_id: this.state.currentFarmId,
+      action_type: 'PAYROLL_UPDATE',
+      result: 'SUCCESS',
+      resource_name: 'payroll',
+      details: `${user?.full_name || userId} oylik maoshi ${newBaseSalaryUzs.toLocaleString()} so'mga o'zgartirildi`,
+    });
+
+    this.notify();
+  }
+
+  public getCurrentPayrollPeriodInfo(dateStr?: string): {
+    currentDay: number;
+    periodType: PayrollPeriodType;
+    periodYearMonth: string;
+    periodLabel: string;
+    isAlreadyPaid: boolean;
+    paidRecord?: PayrollRunRecord;
+  } {
+    const date = dateStr ? new Date(dateStr) : new Date();
+    const currentDay = date.getDate();
+    const periodYearMonth = date.toISOString().slice(0, 7);
+    const periodType: PayrollPeriodType = currentDay <= 15 ? 'avans' : 'oylik';
+
+    const monthNames = [
+      'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
+      'Iyul', 'Avgust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr'
+    ];
+    const monthName = monthNames[date.getMonth()];
+    const year = date.getFullYear();
+
+    const periodLabel = periodType === 'avans'
+      ? `${year}-yil ${monthName} (1-davr: Avans, 1-15 kunlari)`
+      : `${year}-yil ${monthName} (2-davr: Oylik qoldig'i, 16-31 kunlari)`;
+
+    const farmId = this.state.currentFarmId;
+    const paidRecord = (this.state.payrollRuns || []).find(
+      r => r.farm_id === farmId && r.period_year_month === periodYearMonth && r.period_type === periodType
+    );
+
+    return {
+      currentDay,
+      periodType,
+      periodYearMonth,
+      periodLabel,
+      isAlreadyPaid: !!paidRecord,
+      paidRecord,
+    };
+  }
+
+  public previewPayrollDistribution(forcePeriodType?: PayrollPeriodType, paymentDateStr?: string) {
+    const farmId = this.state.currentFarmId;
+    const date = paymentDateStr ? new Date(paymentDateStr) : new Date();
+    const periodInfo = this.getCurrentPayrollPeriodInfo(paymentDateStr);
+    const periodType = forcePeriodType || periodInfo.periodType;
+
+    const employees = this.getEmployeeSalaryConfigs(farmId);
+    const employeesPaid: EmployeePayoutItem[] = employees.map(e => ({
+      user_id: e.user_id,
+      user_name: e.user_name,
+      role: e.role,
+      base_monthly_salary_uzs: e.base_monthly_salary_uzs,
+      period_amount_uzs: Math.round(e.base_monthly_salary_uzs / 2),
+      status: 'paid',
+    }));
+
+    const totalEmployeePayout = employeesPaid.reduce((sum, e) => sum + e.period_amount_uzs, 0);
+
+    const financialSummary = this.getFarmFinancialSummary(farmId);
+    const farmBalanceBefore = financialSummary.farmBalance;
+    const singleFeedCost = financialSummary.singleFeedCycleCost;
+    const fiveCyclesFeedReserve = financialSummary.fiveCyclesFeedReserve;
+
+    const balanceAfterEmployees = farmBalanceBefore - totalEmployeePayout;
+    const adminPayout = Math.max(0, balanceAfterEmployees - fiveCyclesFeedReserve);
+    const farmBalanceAfter = balanceAfterEmployees - adminPayout;
+
+    const adminMember = this.state.farmMembers.find(
+      m => m.farm_id === farmId && m.role === 'admin' && m.status === 'active'
+    );
+
+    return {
+      periodType,
+      periodYearMonth: periodInfo.periodYearMonth,
+      periodLabel: periodInfo.periodLabel,
+      paymentDate: date.toISOString().split('T')[0],
+      employeesPaid,
+      totalEmployeePayout,
+      singleFeedCost,
+      fiveCyclesFeedReserve,
+      farmBalanceBefore,
+      balanceAfterEmployees,
+      adminPayout,
+      farmBalanceAfter,
+      adminUser: adminMember,
+      isAlreadyPaid: periodInfo.isAlreadyPaid,
+    };
+  }
+
+  public executePayrollDistribution(options?: {
+    periodType?: PayrollPeriodType;
+    paymentDate?: string;
+  }): PayrollRunRecord {
+    this.checkPermission(['admin', 'head_manager'], 'payroll', 'Oylik va ish haqini taqsimlash');
+
+    const farmId = this.state.currentFarmId;
+    const today = options?.paymentDate || new Date().toISOString().split('T')[0];
+    const preview = this.previewPayrollDistribution(options?.periodType, today);
+
+    // Tekshiruv: Oyda 2 martadan ko'p bajarilmasin (1-15 bir marta, 16-30/31 bir marta)
+    const existingRun = (this.state.payrollRuns || []).find(
+      r => r.farm_id === farmId && r.period_year_month === preview.periodYearMonth && r.period_type === preview.periodType
+    );
+    if (existingRun) {
+      throw new Error(
+        `Xavfsizlik qoidasi: ${preview.periodLabel} uchun oylik allaqachon to'langan (${existingRun.payment_date} da qayd etilgan). Oyda bir davr uchun faqat bir marta oylik tarqatish mumkin!`
+      );
+    }
+
+    if (preview.farmBalanceBefore < preview.totalEmployeePayout) {
+      throw new Error(
+        `Mablag' yetarli emas: Ferma hisobida ${preview.farmBalanceBefore.toLocaleString()} so'm mavjud, biroq xodimlar ish haqi uchun ${preview.totalEmployeePayout.toLocaleString()} so'm talab etiladi.`
+      );
+    }
+
+    // 1. Xodimlarga oylik berildi va bu ferma xarajatlariga qo'shildi
+    if (preview.totalEmployeePayout > 0) {
+      const finExpense: FinanceRecord = {
+        id: 'fin-sal-' + Math.random().toString(36).substring(2, 9),
+        farm_id: farmId,
+        type: 'xarajat',
+        category: 'ish_haqi',
+        amount_uzs: preview.totalEmployeePayout,
+        date: today,
+        description: `${preview.periodType === 'avans' ? '1-davr: Avans to\'lovi (1-15 kunlari)' : '2-davr: Oylik to\'lovi (16-31 kunlari)'} - ${preview.employeesPaid.length} nafar xodimga ish haqi`,
+        linked_entity_type: 'manual',
+        created_by: this.state.currentUser.full_name,
+        created_at: new Date().toISOString(),
+      };
+      this.state.finances.unshift(finExpense);
+
+      this.logAudit({
+        farm_id: farmId,
+        action_type: 'PAYROLL_DISBURSED',
+        result: 'SUCCESS',
+        resource_name: 'payroll',
+        details: `${preview.periodLabel}: ${preview.employeesPaid.length} nafar xodimga jami ${preview.totalEmployeePayout.toLocaleString()} so'm ish haqi xarajatlarga yozildi`,
+      });
+    }
+
+    // 2. Administratorga oylik / sof foyda ulushi (Daromad ham xarajat ham deb hisoblanmaydi, lekin ferma balansidan yechiladi)
+    const runRecord: PayrollRunRecord = {
+      id: 'payroll-run-' + Math.random().toString(36).substring(2, 9),
+      farm_id: farmId,
+      period_year_month: preview.periodYearMonth,
+      period_type: preview.periodType,
+      period_label: preview.periodLabel,
+      payment_date: today,
+      total_employee_payout_uzs: preview.totalEmployeePayout,
+      employees_paid: preview.employeesPaid,
+      single_feed_cycle_cost_uzs: preview.singleFeedCost,
+      feed_reserve_retained_uzs: preview.fiveCyclesFeedReserve,
+      farm_balance_before_run_uzs: preview.farmBalanceBefore,
+      admin_user_id: preview.adminUser?.user_id,
+      admin_user_name: preview.adminUser?.user_name,
+      admin_payout_uzs: preview.adminPayout,
+      farm_balance_after_run_uzs: preview.farmBalanceAfter,
+      created_by_name: this.state.currentUser.full_name,
+      created_by_role: this.getCurrentRole(),
+      created_at: new Date().toISOString(),
+    };
+
+    if (!Array.isArray(this.state.payrollRuns)) {
+      this.state.payrollRuns = [];
+    }
+    this.state.payrollRuns.unshift(runRecord);
+
+    if (preview.adminPayout > 0) {
+      this.logAudit({
+        farm_id: farmId,
+        action_type: 'ADMIN_PROFIT_PAYOUT',
+        result: 'SUCCESS',
+        resource_name: 'payroll',
+        details: `Administrator ${preview.adminUser?.user_name || 'Rahbar'} ga sof foydadan oylik/dividend ajratildi: ${preview.adminPayout.toLocaleString()} so'm (Ferma hisobida 5 martalik minimal ozuqa zaxirasi: ${preview.fiveCyclesFeedReserve.toLocaleString()} so'm qoldirildi)`,
+      });
+    }
+
+    this.notify();
+    return runRecord;
   }
 }
 

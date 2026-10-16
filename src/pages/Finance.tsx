@@ -15,13 +15,14 @@ import {
   Trash2,
   AlertTriangle,
   CheckCircle2,
+  Coins,
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { FinanceRecord } from '../types';
 
 export const Finance: React.FC = () => {
-  const { state, currentFarm, currentRole, showToast } = useApp();
+  const { state, currentFarm, currentRole, setActiveTab, showToast } = useApp();
   const farmId = currentFarm?.id;
 
   const finances = state.finances.filter(f => f.farm_id === farmId);
@@ -42,9 +43,10 @@ export const Finance: React.FC = () => {
   const [description, setDescription] = useState('');
 
   const isAdmin = currentRole === 'admin';
+  const isHeadManager = currentRole === 'head_manager';
   const isManager = currentRole === 'manager';
-  const canAccess = isAdmin || isManager;
-  const canManage = isAdmin || isManager;
+  const canAccess = isAdmin || isHeadManager || isManager;
+  const canManage = isAdmin || isHeadManager || isManager;
 
   if (!canAccess) {
     return (
@@ -55,14 +57,17 @@ export const Finance: React.FC = () => {
         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Kirish Huquqi Cheklangan (RBAC)</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
           Sizning faol rolingiz: <strong className="capitalize text-slate-900 dark:text-white">{currentRole}</strong>.<br />
-          Ferma moliyaviy ma'lumotlari faqat <strong>Administrator</strong> va <strong>Menejer</strong> tomonidan ko'rilishi va boshqarilishi mumkin.
+          Ferma moliyaviy ma'lumotlari faqat <strong>Administrator</strong>, <strong>Bosh Menejer</strong> va <strong>Menejer</strong> tomonidan ko'rilishi va boshqarilishi mumkin.
         </p>
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          Kirish uchun ferma administratoriga murojaat qiling yoki tizimga Administrator yoki Menejer sifatida kiring.
+          Kirish uchun ferma administratoriga murojaat qiling yoki tizimga vakolatli rol orqali kiring.
         </p>
       </div>
     );
   }
+
+  const financialSummary = backendEngine.getFarmFinancialSummary(farmId);
+  const farmBalance = financialSummary.farmBalance;
 
   // Faol (bekor qilinmagan) yozuvlar bo'yicha jami hisob
   const totalRevenues = finances
@@ -184,7 +189,22 @@ export const Finance: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-white dark:bg-[#0E1A16] p-5 rounded-2xl border border-slate-200/90 dark:border-forest-800/40 shadow-xs relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ferma Balansi</span>
+            <div className="w-8 h-8 rounded-xl bg-forest-50 dark:bg-forest-950/40 text-forest-700 dark:text-forest-400 flex items-center justify-center">
+              <Coins className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 font-mono">
+            {farmBalance.toLocaleString()} so'm
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Likvid hisob (Admin ulushlari yechilganidan so'ng)
+          </p>
+        </div>
+
         <div className="bg-white dark:bg-[#0E1A16] p-5 rounded-2xl border border-slate-200/90 dark:border-forest-800/40 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Jami Daromad</span>
@@ -217,19 +237,46 @@ export const Finance: React.FC = () => {
             : 'bg-gradient-to-br from-rose-900 to-rose-950 text-white border-rose-800'
         }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-forest-200">Sof Moliyaviy Natija</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-forest-200">Moliyaviy Natija</span>
             <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-forest-800/80 text-emerald-300">
-              Ijobiy balans
+              {financialResult >= 0 ? 'Foyda' : 'Zarar'}
             </span>
           </div>
           <p className="text-2xl font-black mt-2 font-mono">
             {financialResult >= 0 ? `+${financialResult.toLocaleString()}` : financialResult.toLocaleString()} so'm
           </p>
           <p className="text-[11px] text-forest-300/80 mt-1">
-            * Barcha xarajatlar to'liq hisobga olinmaguncha tasdiqlangan sof foyda hisoblanmaydi
+            * Jami daromad va operatsion xarajatlar farqi
           </p>
         </div>
       </div>
+
+      {/* Payroll Quick Link Banner for Admin & Head Manager */}
+      {(isAdmin || isHeadManager) && (
+        <div className="bg-gradient-to-r from-emerald-950 via-forest-900 to-[#0A1A14] border border-emerald-700/40 rounded-2xl p-4 sm:p-5 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-500/40">
+              <Coins className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Xodimlar Oyligi &amp; Administrator Foydasi</span>
+                <span className="text-[10px] bg-emerald-500 text-slate-950 font-extrabold px-2 py-0.5 rounded-full">Yangi Tizim</span>
+              </h3>
+              <p className="text-xs text-forest-200 mt-0.5">
+                Oyiga 2 marta (1-15 Avans, 16-31 Oylik). Minimal ozuqa zaxirasi saqlanib, qolgani rahbar oyligi sifatida ajratiladi.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('payroll')}
+            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-bold transition shrink-0 shadow-sm flex items-center gap-1.5"
+          >
+            <Coins className="w-4 h-4" />
+            <span>Oylik &amp; Ish Haqi Sahifasi &rarr;</span>
+          </button>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">

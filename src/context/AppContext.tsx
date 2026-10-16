@@ -10,6 +10,7 @@ export type NavigationTab =
   | 'veterinary'
   | 'feed'
   | 'finance'
+  | 'payroll'
   | 'reports'
   | 'marketplace'
   | 'my-listings'

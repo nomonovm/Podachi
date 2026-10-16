@@ -57,7 +57,7 @@ export const FeedManagement: React.FC = () => {
   const [txUnitPrice, setTxUnitPrice] = useState<number>(30000);
   const [txNotes, setTxNotes] = useState<string>('');
 
-  const canManage = ['admin', 'manager'].includes(currentRole);
+  const canManage = ['admin', 'head_manager', 'manager'].includes(currentRole);
 
   const handleCreateFeed = (e: React.FormEvent) => {
     e.preventDefault();
@@ -576,18 +576,49 @@ export const FeedManagement: React.FC = () => {
               </p>
             </div>
 
-            {/* Feed Consumption Card */}
-            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60">
+            {/* Feed Consumption Card with Universal Formula Breakdown */}
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 space-y-3">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold">
                   🌾
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Chorva Bosh Soni Bo'yicha Yem Sarfi</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Hayvonlar turi va kunlik me'yor asosida ombordan sarflanadi</p>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Kunlik Ozuqa Sarfi & Universal Formula</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Formula: Ax + By + Cz = E (Faqat fermada mavjud hayvonlar kesimida)</p>
                 </div>
               </div>
+
+              {/* Breakdown of existing animal species */}
+              {cyclePreview.existingSpeciesFeedFormula && cyclePreview.existingSpeciesFeedFormula.length > 0 && (
+                <div className="bg-white/90 dark:bg-forest-950/70 p-3 rounded-xl border border-amber-200/80 dark:border-amber-800/40 text-xs">
+                  <p className="font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                    Mavjud chorva turlari va kunlik ozuqa sarfi:
+                  </p>
+                  <div className="divide-y divide-slate-100 dark:divide-forest-900/60">
+                    {cyclePreview.existingSpeciesFeedFormula.map((item, idx) => (
+                      <div key={idx} className="py-1.5 flex flex-wrap justify-between items-center text-[11px]">
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">
+                          {item.species} ({item.headCount} bosh)
+                        </span>
+                        <div className="text-slate-600 dark:text-slate-300 flex items-center gap-2 font-mono">
+                          {item.totalBedaBoglam > 0 && (
+                            <span>Beda: <b>{item.totalBedaBoglam}</b> bog'lam</span>
+                          )}
+                          {item.totalYemKg > 0 && (
+                            <span>Yem: <b>{item.totalYemKg}</b> kg</span>
+                          )}
+                          {item.totalSilosTonna > 0 && (
+                            <span>Silos: <b>{item.totalSilosTonna}</b> t</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5 pt-2 border-t border-amber-200/60 dark:border-amber-800/40">
+                <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200 mb-1">Ombordan jami ayiriladigan ozuqa miqdori:</p>
                 {cyclePreview.feedDeductions.length > 0 ? (
                   cyclePreview.feedDeductions.map((f, i) => (
                     <div key={i} className="flex justify-between items-center text-xs bg-white/80 dark:bg-forest-900/40 px-3 py-1.5 rounded-xl">

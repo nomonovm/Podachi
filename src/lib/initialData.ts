@@ -92,7 +92,7 @@ export const INITIAL_FARM_MEMBERS: FarmMember[] = [
     user_id: 'user-manager-1',
     user_name: 'Bobur Rustamov (Bosh Menejer)',
     user_email: 'manager@podachi.uz',
-    role: 'manager',
+    role: 'head_manager',
     status: 'active',
     joined_at: '2026-01-12T09:30:00Z',
   },
@@ -497,6 +497,18 @@ export const INITIAL_FINANCE_RECORDS: FinanceRecord[] = [
     linked_entity_type: 'manual',
     created_by: 'Bobur Rustamov (Bosh Menejer)',
     created_at: '2026-02-28T19:00:00Z',
+  },
+  {
+    id: 'fin-rev-2',
+    farm_id: 'farm-baraka-1',
+    type: 'daromad',
+    category: 'chorva_sotuvi',
+    amount_uzs: 85000000,
+    date: '2026-03-01',
+    description: 'Naslli hisori qo\'chqorlar va qoramollar sotuvidan tushum',
+    linked_entity_type: 'manual',
+    created_by: 'Alisher Qodirov (Ferma Rahbari)',
+    created_at: '2026-03-01T14:00:00Z',
   }
 ];
 

@@ -40,15 +40,20 @@ export const UserManagement: React.FC = () => {
     }
   };
 
-  const roleLabels: Record<UserRole, { label: string; desc: string; variant: 'forest' | 'emerald' | 'amber' | 'slate' }> = {
+  const roleLabels: Record<UserRole, { label: string; desc: string; variant: 'forest' | 'emerald' | 'amber' | 'slate' | 'rose' }> = {
     admin: {
       label: 'Administrator',
       desc: 'To\'liq huquq: a\'zolarni qabul qilish, rollar, audit jurnali, chorva va barcha modullar.',
       variant: 'forest',
     },
+    head_manager: {
+      label: 'Bosh Menejer',
+      desc: 'Barcha amaliyotlar, kunlik sikl, oylik va ish haqini boshqarish huquqi. Fermada faqat 1 nafar bo\'lishi shart.',
+      variant: 'emerald',
+    },
     manager: {
       label: 'Menejer',
-      desc: 'Chorva hisobi, yem-xashak, moliya va bozor e\'lonlari. Rollarni o\'zgartira olmaydi.',
+      desc: 'Chorva hisobi, yem-xashak, moliya va bozor e\'lonlari. Cheklanmagan miqdorda xodim tayinlanishi mumkin.',
       variant: 'emerald',
     },
     veterinarian: {
@@ -57,8 +62,8 @@ export const UserManagement: React.FC = () => {
       variant: 'amber',
     },
     viewer: {
-      label: 'Kuzatuvchi',
-      desc: 'Faqat o\'qish huquqi. Hech qanday ma\'lumotni kiritish yoki o\'chirishga ruxsati yo\'q.',
+      label: 'Kuzatuvchi (Mehmon)',
+      desc: 'Faqat ko\'rish huquqi. Harakatlar tarixi va moliyaviy ma\'lumotlar yopiq.',
       variant: 'slate',
     },
   };
@@ -166,9 +171,10 @@ export const UserManagement: React.FC = () => {
                             }
                             className="px-2 py-1 bg-white dark:bg-[#0B1713] text-slate-900 dark:text-white border border-slate-300 dark:border-forest-800/70 rounded-lg text-xs font-semibold focus:outline-none"
                           >
-                            <option value="viewer">Kuzatuvchi</option>
+                            <option value="viewer">Kuzatuvchi (Mehmon)</option>
                             <option value="veterinarian">Veterinar</option>
-                            <option value="manager">Menejer</option>
+                            <option value="manager">Menejer (Cheklanmagan)</option>
+                            <option value="head_manager">Bosh Menejer (Faqat 1 kishi)</option>
                             <option value="admin">Administrator</option>
                           </select>
                         ) : (
@@ -255,9 +261,10 @@ export const UserManagement: React.FC = () => {
                           className="px-2.5 py-1 bg-white dark:bg-[#0B1713] text-slate-900 dark:text-white border border-slate-300 dark:border-forest-800/70 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-forest-600"
                         >
                           <option value="admin">Administrator</option>
-                          <option value="manager">Menejer</option>
+                          <option value="head_manager">Bosh Menejer (Faqat 1 kishi)</option>
+                          <option value="manager">Menejer (Cheklanmagan)</option>
                           <option value="veterinarian">Veterinar</option>
-                          <option value="viewer">Kuzatuvchi</option>
+                          <option value="viewer">Kuzatuvchi (Mehmon)</option>
                         </select>
                       )}
                     </td>
@@ -279,8 +286,8 @@ export const UserManagement: React.FC = () => {
           Qat'iy ruxsatlar nazorati va server darajasidagi xavfsizlik tekshiruvlari
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {(['admin', 'manager', 'veterinarian', 'viewer'] as UserRole[]).map(roleKey => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {(['admin', 'head_manager', 'manager', 'veterinarian', 'viewer'] as UserRole[]).map(roleKey => {
             const info = roleLabels[roleKey];
             return (
               <div key={roleKey} className="p-4 rounded-xl border border-slate-200 dark:border-forest-900/60 bg-slate-50/50 dark:bg-[#0A1411]">

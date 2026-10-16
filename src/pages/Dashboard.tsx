@@ -17,6 +17,7 @@ import {
   Lock,
   ShieldAlert,
   Wheat,
+  Coins,
 } from 'lucide-react';
 import { DailyFarmCycleSummary } from '../types';
 import { StatCard } from '../components/ui/StatCard';
@@ -37,7 +38,7 @@ import {
 export const Dashboard: React.FC = () => {
   const { state, currentFarm, currentRole, setActiveTab, isDarkMode, showToast } = useApp();
 
-  const canManage = currentRole === 'admin' || currentRole === 'manager';
+  const canManage = currentRole === 'admin' || currentRole === 'head_manager' || currentRole === 'manager';
 
   const [cyclePreview, setCyclePreview] = useState<DailyFarmCycleSummary | null>(null);
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
@@ -89,6 +90,8 @@ export const Dashboard: React.FC = () => {
     .filter(f => f.type === 'xarajat' && !f.is_cancelled)
     .reduce((sum, f) => sum + f.amount_uzs, 0);
   const financialResult = totalRevenues - totalExpenses;
+  const financialSummary = backendEngine.getFarmFinancialSummary(farmId);
+  const farmBalance = financialSummary.farmBalance;
 
   // Low feed warnings
   const lowFeedCount = feedItems.filter(f => f.stock_quantity <= f.min_threshold).length;
@@ -166,7 +169,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Main KPI Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${currentRole !== 'viewer' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
         <StatCard
           title="Jami Chorva Soni"
           value={`${totalLivestock} bosh`}
@@ -187,6 +190,15 @@ export const Dashboard: React.FC = () => {
 
         {currentRole !== 'viewer' ? (
           <>
+            <StatCard
+              title="Ferma Balansi"
+              value={`${(farmBalance / 1_000_000).toFixed(1)} mln so'm`}
+              subtitle={`Foyda: ${(financialResult / 1_000_000).toFixed(1)}M | Admin olgan: ${(financialSummary.totalAdminPayouts / 1_000_000).toFixed(1)}M`}
+              icon={Coins}
+              badge={farmBalance >= 0 ? "Likvid hisob" : "Qarz"}
+              badgeVariant={farmBalance >= 0 ? "emerald" : "rose"}
+            />
+
             <StatCard
               title="Jami Daromad"
               value={`${(totalRevenues / 1_000_000).toFixed(1)} mln so'm`}
@@ -504,18 +516,49 @@ export const Dashboard: React.FC = () => {
               </p>
             </div>
 
-            {/* Feed Consumption Card */}
-            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60">
+            {/* Feed Consumption Card with Universal Formula Breakdown */}
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 space-y-3">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold">
                   🌾
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Chorva Bosh Soni Bo'yicha Yem Sarfi</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Hayvonlar turi va kunlik me'yor asosida ombordan sarflanadi</p>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Kunlik Ozuqa Sarfi & Universal Formula</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Formula: Ax + By + Cz = E (Faqat fermada mavjud hayvonlar kesimida)</p>
                 </div>
               </div>
+
+              {/* Breakdown of existing animal species */}
+              {cyclePreview.existingSpeciesFeedFormula && cyclePreview.existingSpeciesFeedFormula.length > 0 && (
+                <div className="bg-white/90 dark:bg-forest-950/70 p-3 rounded-xl border border-amber-200/80 dark:border-amber-800/40 text-xs">
+                  <p className="font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                    Mavjud chorva turlari va kunlik ozuqa sarfi:
+                  </p>
+                  <div className="divide-y divide-slate-100 dark:divide-forest-900/60">
+                    {cyclePreview.existingSpeciesFeedFormula.map((item, idx) => (
+                      <div key={idx} className="py-1.5 flex flex-wrap justify-between items-center text-[11px]">
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">
+                          {item.species} ({item.headCount} bosh)
+                        </span>
+                        <div className="text-slate-600 dark:text-slate-300 flex items-center gap-2 font-mono">
+                          {item.totalBedaBoglam > 0 && (
+                            <span>Beda: <b>{item.totalBedaBoglam}</b> bog'lam</span>
+                          )}
+                          {item.totalYemKg > 0 && (
+                            <span>Yem: <b>{item.totalYemKg}</b> kg</span>
+                          )}
+                          {item.totalSilosTonna > 0 && (
+                            <span>Silos: <b>{item.totalSilosTonna}</b> t</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5 pt-2 border-t border-amber-200/60 dark:border-amber-800/40">
+                <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200 mb-1">Ombordan jami ayiriladigan ozuqa miqdori:</p>
                 {cyclePreview.feedDeductions.length > 0 ? (
                   cyclePreview.feedDeductions.map((f, i) => (
                     <div key={i} className="flex justify-between items-center text-xs bg-white/80 dark:bg-forest-900/40 px-3 py-1.5 rounded-xl">

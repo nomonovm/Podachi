@@ -1,6 +1,6 @@
 // PODACHI - Core TypeScript Type Definitions
 
-export type UserRole = 'admin' | 'manager' | 'veterinarian' | 'viewer';
+export type UserRole = 'admin' | 'head_manager' | 'manager' | 'veterinarian' | 'viewer';
 
 export interface UserProfile {
   id: string;
@@ -141,6 +141,27 @@ export interface DailyFarmCycleSummary {
   feedDeductions: { name: string; quantity: number; unit: string; currentStock: number }[];
   feedReplenishments: { name: string; quantity: number; unit: string; cost: number; currentStock: number; threshold: number }[];
   vetActions: { title: string; groupInfo: string; headsTreated: number; medicine: string; cost: number; recordId?: string }[];
+  existingSpeciesFeedFormula?: {
+    species: string;
+    category: string;
+    headCount: number;
+    normBedaBoglam: number;
+    normYemKg: number;
+    normSilosTonna: number;
+    totalBedaBoglam: number;
+    totalYemKg: number;
+    totalSilosTonna: number;
+  }[];
+}
+
+export interface AnimalDailyFeedNorm {
+  species: string;
+  category: string;
+  beda_daily_boglam: number;
+  yem_daily_kg: number;
+  silos_daily_tonna: number;
+  milk_daily_liters?: number;
+  milk_price_per_liter_uzs?: number;
 }
 
 export type VeterinaryRecordType = 'emlash' | 'korik' | 'muolaja' | 'dori_berish';
@@ -317,7 +338,10 @@ export type AuditActionType =
   | 'HEALTH_RECORD'
   | 'SECURITY_UNAUTHORIZED_ACCESS_ATTEMPT'
   | 'SECURITY_OVER_RESERVATION_ATTEMPT'
-  | 'SETTINGS_CHANGE';
+  | 'SETTINGS_CHANGE'
+  | 'PAYROLL_UPDATE'
+  | 'PAYROLL_DISBURSED'
+  | 'ADMIN_PROFIT_PAYOUT';
 
 export interface AuditLog {
   id: string;
@@ -342,4 +366,56 @@ export interface SecurityTestCase {
   status: 'PENDING' | 'PASS' | 'FAIL';
   execution_log?: string[];
   remediation_advice: string;
+}
+
+// --- Payroll & Salary Management Types ---
+export type PayrollPeriodType = 'avans' | 'oylik';
+
+export interface EmployeeSalaryConfig {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  role: UserRole;
+  base_monthly_salary_uzs: number;
+}
+
+export interface EmployeePayoutItem {
+  user_id: string;
+  user_name: string;
+  role: UserRole;
+  base_monthly_salary_uzs: number;
+  period_amount_uzs: number;
+  status: 'paid';
+}
+
+export interface PayrollRunRecord {
+  id: string;
+  farm_id: string;
+  period_year_month: string;
+  period_type: PayrollPeriodType;
+  period_label: string;
+  payment_date: string;
+  total_employee_payout_uzs: number;
+  employees_paid: EmployeePayoutItem[];
+  single_feed_cycle_cost_uzs: number;
+  feed_reserve_retained_uzs: number;
+  farm_balance_before_run_uzs: number;
+  admin_user_id?: string;
+  admin_user_name?: string;
+  admin_payout_uzs: number;
+  farm_balance_after_run_uzs: number;
+  created_by_name: string;
+  created_by_role: UserRole;
+  created_at: string;
+}
+
+export interface FarmFinancialSummary {
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  totalAdminPayouts: number;
+  farmBalance: number;
+  singleFeedCycleCost: number;
+  fiveCyclesFeedReserve: number;
+  adminAvailableSurplus: number;
 }

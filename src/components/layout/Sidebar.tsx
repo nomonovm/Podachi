@@ -8,6 +8,7 @@ import {
   Stethoscope,
   Wheat,
   Receipt,
+  Coins,
   ShoppingBag,
   Tag,
   Users,
@@ -44,15 +45,16 @@ export const Sidebar: React.FC = () => {
         { id: 'dashboard', label: 'Boshqaruv Paneli', icon: LayoutDashboard },
         { id: 'livestock', label: 'Chorva Hisobi', icon: Layers },
         { id: 'catalog', label: 'Zotlar Katalogi', icon: BookOpen },
-        { id: 'movements', label: 'Harakatlar Tarixi', icon: History, roles: ['admin', 'manager', 'veterinarian'] },
+        { id: 'movements', label: 'Harakatlar Tarixi', icon: History, roles: ['admin', 'head_manager', 'manager', 'veterinarian'] },
       ],
     },
     {
       title: 'FERMA AMALIYOTLARI',
       items: [
-        { id: 'veterinary', label: 'Veterinariya & Sog\'liq', icon: Stethoscope, roles: ['admin', 'manager', 'veterinarian'] },
-        { id: 'feed', label: 'Yem-Xashak Zaxirasi', icon: Wheat, roles: ['admin', 'manager'] },
-        { id: 'finance', label: 'Moliya & Hisob-kitob', icon: Receipt, roles: ['admin', 'manager'] },
+        { id: 'veterinary', label: 'Veterinariya & Sog\'liq', icon: Stethoscope, roles: ['admin', 'head_manager', 'manager', 'veterinarian'] },
+        { id: 'feed', label: 'Yem-Xashak Zaxirasi', icon: Wheat, roles: ['admin', 'head_manager', 'manager'] },
+        { id: 'finance', label: 'Moliya & Hisob-kitob', icon: Receipt, roles: ['admin', 'head_manager', 'manager'] },
+        { id: 'payroll', label: 'Oylik & Ish Haqi', icon: Coins, roles: ['admin', 'head_manager'] },
       ],
     },
     {
@@ -64,7 +66,7 @@ export const Sidebar: React.FC = () => {
           icon: ShoppingBag,
           badge: `${state.marketplaceListings.filter(l => l.status === 'active' || l.status === 'partially_sold').length}`,
         },
-        { id: 'my-listings', label: 'Mening E\'lonlarim', icon: Tag, roles: ['admin', 'manager'] },
+        { id: 'my-listings', label: 'Mening E\'lonlarim', icon: Tag, roles: ['admin', 'head_manager', 'manager'] },
       ],
     },
     {

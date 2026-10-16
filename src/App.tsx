@@ -24,6 +24,7 @@ import { SecurityTesting } from './pages/SecurityTesting';
 import { FarmSettings } from './pages/FarmSettings';
 import { FarmJoin } from './pages/FarmJoin';
 import { FarmCreate } from './pages/FarmCreate';
+import { Payroll } from './pages/Payroll';
 
 import { Lock } from 'lucide-react';
 import { UserRole } from './types';
@@ -32,9 +33,14 @@ import { NavigationTab } from './context/AppContext';
 const ROLE_PERMITTED_TABS: Record<UserRole, NavigationTab[]> = {
   admin: [
     'dashboard', 'livestock', 'catalog', 'movements', 'veterinary',
-    'feed', 'finance', 'reports', 'marketplace', 'my-listings',
+    'feed', 'finance', 'payroll', 'reports', 'marketplace', 'my-listings',
     'users', 'security-center', 'audit-logs', 'security-testing',
     'farm-settings', 'farm-join', 'farm-create',
+  ],
+  head_manager: [
+    'dashboard', 'livestock', 'catalog', 'movements', 'veterinary',
+    'feed', 'finance', 'payroll', 'reports', 'marketplace', 'my-listings',
+    'farm-join', 'farm-create',
   ],
   manager: [
     'dashboard', 'livestock', 'catalog', 'movements', 'veterinary',
@@ -46,7 +52,7 @@ const ROLE_PERMITTED_TABS: Record<UserRole, NavigationTab[]> = {
     'marketplace', 'farm-join', 'farm-create',
   ],
   viewer: [
-    'dashboard', 'livestock', 'catalog', 'movements',
+    'dashboard', 'livestock', 'catalog',
     'marketplace', 'farm-join', 'farm-create',
   ],
 };
@@ -104,6 +110,8 @@ const MainContent: React.FC = () => {
       case 'finance':
       case 'reports':
         return <Finance />;
+      case 'payroll':
+        return <Payroll />;
       case 'marketplace':
         return <Marketplace />;
       case 'my-listings':

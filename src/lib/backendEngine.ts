@@ -1878,6 +1878,54 @@ export class PodachiBackendEngine {
     return formula.totalHeads > 0;
   }
 
+  /**
+   * Universal formula (Ax + By + Cz = E) asosida faqat fermada mavjud hayvonlar uchun
+   * minimal ozuqa to'ldirish me'yorini hisoblaydi (3 kunlik minimal ehtiyoj).
+   * Agar fermada tegishli hayvon bo'lmasa (masalan tovuq 0 bosh), 0 qaytaradi.
+   */
+  public getFeedRestockQuantityForAnimals(
+    feed: FeedItem,
+    farmGroups?: AnimalGroup[],
+    feedFormula?: ReturnType<PodachiBackendEngine['calculateFarmFeedFormula']>
+  ): number {
+    const targetFarmId = feed.farm_id || this.state.currentFarmId;
+    const groups = farmGroups || this.state.animalGroups.filter(g => g.farm_id === targetFarmId && g.current_head_count > 0);
+    if (groups.length === 0) return 0;
+
+    const formula = feedFormula || this.calculateFarmFeedFormula(groups);
+    if (formula.totalHeads === 0) return 0;
+
+    if (!this.isFeedNeededForExistingAnimals(feed, groups, formula)) {
+      return 0;
+    }
+
+    const feedType = feed.feed_type.toLowerCase();
+    const feedName = feed.name.toLowerCase();
+    const unit = feed.unit.toLowerCase();
+
+    // Universal formula (Ax + By + Cz = E) bo'yicha mavjud hayvonlarning kunlik sarfi
+    let dailyNeed = 0;
+    if (feedType === 'xashak' || feedName.includes('beda') || unit === 'bog\'lam') {
+      dailyNeed = formula.totalBedaDaily;
+    } else if (feedType === 'yem' || unit === 'kg' || feedName.includes('yem') || feedName.includes('arpa') || feedName.includes('bug\'doy')) {
+      dailyNeed = formula.totalYemDailyKg;
+    } else if (feedType === 'silos' || unit === 'tonna' || feedName.includes('silos')) {
+      dailyNeed = formula.totalSilosDailyTonna;
+    } else if (feedType === 'vitamin' || unit === 'qop' || feedName.includes('vitamin') || feedName.includes('premiks')) {
+      dailyNeed = formula.totalHeads > 0 ? 0.5 : 0;
+    } else {
+      dailyNeed = formula.totalHeads > 0 ? 1 : 0;
+    }
+
+    if (dailyNeed <= 0) return 0;
+
+    // Minimal zaxiraga tushganda faqat mavjud hayvonlar uchun yetadigan to'ldirish me'yori (3 kunlik ehtiyoj)
+    if (unit === 'tonna') {
+      return Math.max(1, Math.round(dailyNeed * 3 * 10) / 10);
+    }
+    return Math.max(1, Math.ceil(dailyNeed * 3));
+  }
+
   // --- Daily Farm Cycle Preview (Hisob-kitobni oldindan ko'rish, yangi yozuv yaratmaydi) ---
   public calculateDailyFarmCyclePreview(): DailyFarmCycleSummary {
     const today = new Date().toISOString().split('T')[0];
@@ -1957,7 +2005,7 @@ export class PodachiBackendEngine {
       }
     });
 
-    // 3. Minimal chegaraga yetgan yemlarni avtomatik to'ldirish hisobi (faqat mavjud chorva uchun)
+    // 3. Minimal chegaraga yetgan yemlarni avtomatik to'ldirish hisobi (faqat mavjud chorva uchun va FAQATGINA chegaraga yetgan ozuqa)
     const feedReplenishments: { name: string; quantity: number; unit: string; cost: number; currentStock: number; threshold: number }[] = [];
 
     farmFeed.forEach(feed => {
@@ -1968,13 +2016,10 @@ export class PodachiBackendEngine {
       const deduction = feedDeductions.find(d => d.name === feed.name)?.quantity || 0;
       const stockAfterDeduct = feed.stock_quantity - deduction;
 
+      // Qoida: minimal chegaraga faqatgina 1 ta ozuqa tushsa, hamma ozuqa emas, faqat o'sha ozuqa to'ldiriladi!
       if (stockAfterDeduct <= feed.min_threshold) {
-        let restockQty = 0;
-        if (feed.unit === 'bog\'lam') restockQty = Math.max(500, feed.min_threshold * 3);
-        else if (feed.unit === 'kg') restockQty = Math.max(3000, feed.min_threshold * 2);
-        else if (feed.unit === 'tonna') restockQty = Math.max(10, feed.min_threshold * 2);
-        else if (feed.unit === 'qop') restockQty = Math.max(25, feed.min_threshold * 2);
-        else restockQty = Math.max(50, feed.min_threshold * 2);
+        const restockQty = this.getFeedRestockQuantityForAnimals(feed, farmGroups, feedFormula);
+        if (restockQty <= 0) return;
 
         const unitPrice = feed.unit_price_uzs || 30000;
         const totalCost = restockQty * unitPrice;
@@ -2204,13 +2249,10 @@ export class PodachiBackendEngine {
         return;
       }
 
+      // Qoida: minimal chegaraga faqatgina 1 ta ozuqa tushsa, faqat o'sha ozuqa sotib olinadi!
       if (feed.stock_quantity <= feed.min_threshold) {
-        let restockQty = 0;
-        if (feed.unit === 'bog\'lam') restockQty = Math.max(500, feed.min_threshold * 3);
-        else if (feed.unit === 'kg') restockQty = Math.max(3000, feed.min_threshold * 2);
-        else if (feed.unit === 'tonna') restockQty = Math.max(10, feed.min_threshold * 2);
-        else if (feed.unit === 'qop') restockQty = Math.max(25, feed.min_threshold * 2);
-        else restockQty = Math.max(50, feed.min_threshold * 2);
+        const restockQty = this.getFeedRestockQuantityForAnimals(feed, farmGroups, feedFormula);
+        if (restockQty <= 0) return;
 
         const unitPrice = feed.unit_price_uzs || 30000;
         const totalCost = restockQty * unitPrice;
@@ -2634,7 +2676,9 @@ export class PodachiBackendEngine {
     }
 
     const farmFeed = this.state.feedItems.filter(f => f.farm_id === targetFarmId);
-    let totalCost = 0;
+
+    // Faqat mavjud hayvonlarga zarur ozuqa turlari uchun narxlarni hisoblash
+    const singleFeedReplenishmentCosts: { feed: FeedItem; cost: number }[] = [];
 
     farmFeed.forEach(feed => {
       // Faqatgina fermada amalda mavjud bo'lgan hayvonlarga kerak bo'ladigan ozuqalar hisoblanadi
@@ -2643,18 +2687,34 @@ export class PodachiBackendEngine {
         return;
       }
 
-      let restockQty = 0;
-      if (feed.unit === 'bog\'lam') restockQty = Math.max(500, feed.min_threshold * 3);
-      else if (feed.unit === 'kg') restockQty = Math.max(3000, feed.min_threshold * 2);
-      else if (feed.unit === 'tonna') restockQty = Math.max(10, feed.min_threshold * 2);
-      else if (feed.unit === 'qop') restockQty = Math.max(25, feed.min_threshold * 2);
-      else restockQty = Math.max(50, feed.min_threshold * 2);
+      const restockQty = this.getFeedRestockQuantityForAnimals(feed, farmGroups, feedFormula);
+      if (restockQty <= 0) return;
 
       const unitPrice = feed.unit_price_uzs || 30000;
-      totalCost += restockQty * unitPrice;
+      const cost = restockQty * unitPrice;
+      singleFeedReplenishmentCosts.push({ feed, cost });
     });
 
-    return totalCost;
+    if (singleFeedReplenishmentCosts.length === 0) {
+      return 0;
+    }
+
+    // Foydalanuvchi qoidasi: "minimal chegaraga faqatgina 1 ta ozuqa turi tushsa hamma ozuqadan minimal qiymatda sotib olish kerak emas"
+    // Ya'ni 1 martalik ozuqa zaxirasi - barcha ozuqalar summasi emas, balki 1 ta ozuqa turi minimal chegaraga yetganda
+    // uni to'ldirishga yetadigan 1 ta ozuqa xaridi narxidir.
+    const currentlyLowFeeds = singleFeedReplenishmentCosts.filter(
+      item => item.feed.stock_quantity <= item.feed.min_threshold
+    );
+
+    if (currentlyLowFeeds.length > 0) {
+      // Agar amalda qaysidir ozuqa(lar) minimal chegaraga tushgan bo'lsa, o'sha ozuqalar xarid narxi
+      return currentlyLowFeeds.reduce((sum, item) => sum + item.cost, 0);
+    }
+
+    // Agar hali hech qaysi ozuqa chegaraga yetmagan bo'lsa, mavjud hayvonlar uchun eng asosiy (maksimal) 1 ta ozuqa xaridi narxi
+    // (Masalan: beda yoki yem to'ldirish narxi)
+    const maxSingleFeedCost = Math.max(...singleFeedReplenishmentCosts.map(item => item.cost));
+    return maxSingleFeedCost;
   }
 
   public getFarmFeedReserveCycles(farmId?: string): number {

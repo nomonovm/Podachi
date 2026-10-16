@@ -153,7 +153,7 @@ export const Payroll: React.FC = () => {
               </Badge>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl">
-              Fermadagi mavjud chorva bosh soni uchun 1 martalik ozuqa zaxirasi: <strong>{financialSummary.singleFeedCycleCost.toLocaleString()} so'm</strong>.
+              Fermadagi mavjud chorva uchun 1 ta ozuqa turi kamayganda avtomatik to'ldirish narxi: <strong>{financialSummary.singleFeedCycleCost.toLocaleString()} so'm</strong> (faqat kamaygan 1 ta ozuqa turi olinadi, barcha ozuqalar barobariga sotib olinmaydi).
               Ferma hisobida daxlsiz qoladigan zaxira sikllari sonini tanlang (ortgan mablag' Rahbar sof foydasiga o'tadi):
             </p>
           </div>
@@ -213,7 +213,7 @@ export const Payroll: React.FC = () => {
             {preview.feedReserveRetained.toLocaleString()} so'm
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Har 1 sikl: {preview.singleFeedCost.toLocaleString()} so'm (Ferma hisobida daxlsiz qoladi)
+            Har 1 sikl: {preview.singleFeedCost.toLocaleString()} so'm (Mavjud chorva uchun 1 ta ozuqa xaridi)
           </p>
         </div>
 
@@ -462,7 +462,7 @@ export const Payroll: React.FC = () => {
                 <strong>Xodimlar oyligi:</strong> Bosh Menejer, Menejer va Bosh Veterinar maoshlari to'liq ferma operatsion <strong>xarajatlariga</strong> (`ish_haqi` toifasida) yoziladi va ferma balansini kamaytiradi.
               </li>
               <li>
-                <strong>{reserveCycles} Martalik Ozuqa Zaxirasi:</strong> Minimal ozuqa chegarasiga yetganda avtomatik sotib olinadigan xarid miqdoridan administrator tanlagan {reserveCycles} tasiga yetadigan mablag' (<strong>{preview.feedReserveRetained.toLocaleString()} so'm</strong>) daxlsiz ravishda ferma hisobida saqlanib turadi. Faqat fermada <em>mavjud hayvonlar</em> uchun zarur ozuqalar hisoblanadi.
+                <strong>{reserveCycles} Martalik Ozuqa Zaxirasi:</strong> Minimal ozuqa chegarasiga yetganda avtomatik sotib olinadigan 1 ta ozuqa xarid narxidan administrator tanlagan {reserveCycles} tasiga yetadigan mablag' (<strong>{preview.feedReserveRetained.toLocaleString()} so'm</strong>) daxlsiz ravishda ferma hisobida saqlanib turadi. Bunda <em>faqat fermada mavjud hayvonlar</em> uchun ozuqa hisoblanadi va minimal chegaraga faqat 1 ta ozuqa turi tushsa, hamma ozuqa emas, faqat o'sha kamaygan ozuqa xarid qilinadi.
               </li>
               <li>
                 <strong>Rahbar Sof Foydasi (Dividend):</strong> Xodimlar maoshi to'lanib, {reserveCycles} martalik ozuqa zaxirasi qoldirilgach, ortgan barcha pul Rahbarga sof foyda ulushi (dividend) sifatida yo'naltiriladi. Ushbu to'lov ferma xarajatiga ham, daromadiga ham qo'shilmaydi, lekin ferma hisobidan yechiladi.

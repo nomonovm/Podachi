@@ -153,8 +153,8 @@ export const Payroll: React.FC = () => {
               </Badge>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl">
-              Fermadagi mavjud chorva uchun 1 ta ozuqa turi kamayganda avtomatik to'ldirish narxi: <strong>{financialSummary.singleFeedCycleCost.toLocaleString()} so'm</strong> (faqat kamaygan 1 ta ozuqa turi olinadi, barcha ozuqalar barobariga sotib olinmaydi).
-              Ferma hisobida daxlsiz qoladigan zaxira sikllari sonini tanlang (ortgan mablag' Rahbar sof foydasiga o'tadi):
+              Fermadagi mavjud chorva iste'mol qiladigan ozuqalar uchun 15 kunlik minimal zaxira narxi: <strong>{financialSummary.singleFeedCycleCost.toLocaleString()} so'm</strong> (har 15 kunlik to'lov davri uchun ozuqa kafolati).
+              Ferma hisobida daxlsiz qoladigan zaxira davrini tanlang (ortgan mablag' Rahbar sof foydasiga o'tadi):
             </p>
           </div>
 
@@ -165,14 +165,14 @@ export const Payroll: React.FC = () => {
                 key={num}
                 type="button"
                 onClick={() => handleSetCycles(num)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-xs ${
+                className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-xs ${
                   reserveCycles === num
                     ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-slate-900'
                     : 'bg-white dark:bg-[#0E1A16] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-forest-800/60 hover:bg-amber-50 dark:hover:bg-amber-950/40'
                 }`}
               >
-                <span>{num} martalik</span>
-                {num === 2 && (
+                <span>{num}x ({num * 15} kunlik)</span>
+                {num === 1 && (
                   <span className="text-[10px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-1 rounded font-bold">
                     Tavsiya
                   </span>
@@ -213,7 +213,7 @@ export const Payroll: React.FC = () => {
             {preview.feedReserveRetained.toLocaleString()} so'm
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Har 1 sikl: {preview.singleFeedCost.toLocaleString()} so'm (Mavjud chorva uchun 1 ta ozuqa xaridi)
+            Har 1 sikl: {preview.singleFeedCost.toLocaleString()} so'm (Mavjud chorva uchun 15 kunlik ozuqa zaxirasi)
           </p>
         </div>
 
@@ -462,7 +462,7 @@ export const Payroll: React.FC = () => {
                 <strong>Xodimlar oyligi:</strong> Bosh Menejer, Menejer va Bosh Veterinar maoshlari to'liq ferma operatsion <strong>xarajatlariga</strong> (`ish_haqi` toifasida) yoziladi va ferma balansini kamaytiradi.
               </li>
               <li>
-                <strong>{reserveCycles} Martalik Ozuqa Zaxirasi:</strong> Minimal ozuqa chegarasiga yetganda avtomatik sotib olinadigan 1 ta ozuqa xarid narxidan administrator tanlagan {reserveCycles} tasiga yetadigan mablag' (<strong>{preview.feedReserveRetained.toLocaleString()} so'm</strong>) daxlsiz ravishda ferma hisobida saqlanib turadi. Bunda <em>faqat fermada mavjud hayvonlar</em> uchun ozuqa hisoblanadi va minimal chegaraga faqat 1 ta ozuqa turi tushsa, hamma ozuqa emas, faqat o'sha kamaygan ozuqa xarid qilinadi.
+                <strong>{reserveCycles} Martalik Ozuqa Zaxirasi ({reserveCycles * 15} kunlik):</strong> Hayvonlar sonidan va kunlik iste'molidan kelib chiqib, mavjud chorva iste'mol qiladigan ozuqalar uchun 15 kunlik minimal miqdor belgilanadi (1 sikl narxi: <strong>{preview.singleFeedCost.toLocaleString()} so'm</strong>). Fermada yo'q hayvonlar uchun ozuqa turlari aslo hisoblanmaydi.
               </li>
               <li>
                 <strong>Rahbar Sof Foydasi (Dividend):</strong> Xodimlar maoshi to'lanib, {reserveCycles} martalik ozuqa zaxirasi qoldirilgach, ortgan barcha pul Rahbarga sof foyda ulushi (dividend) sifatida yo'naltiriladi. Ushbu to'lov ferma xarajatiga ham, daromadiga ham qo'shilmaydi, lekin ferma hisobidan yechiladi.

@@ -53,17 +53,17 @@ export const UNIVERSAL_ANIMAL_FEED_NORMS: Record<string, AnimalDailyFeedNorm> = 
   qoramol: {
     species: 'Qoramol',
     category: 'Yirik shoxli',
-    beda_daily_boglam: 0.5,
-    yem_daily_kg: 4.0,
-    silos_daily_tonna: 0.015,
+    beda_daily_boglam: 0.2, // kunlik 0.2 bog'lam (3-4 kg quruq beda)
+    yem_daily_kg: 2.0,      // kunlik 2 kg aralash yem
+    silos_daily_tonna: 0.005, // kunlik 5 kg silos
     milk_daily_liters: 20,
     milk_price_per_liter_uzs: 5500,
   },
   qoy: {
     species: 'Qo\'y',
     category: 'Mayda tuyoqli',
-    beda_daily_boglam: 0.15,
-    yem_daily_kg: 0.6,
+    beda_daily_boglam: 0.04, // kunlik 0.04 bog'lam (~0.8 kg)
+    yem_daily_kg: 0.15,      // kunlik 150 gr donli yem
     silos_daily_tonna: 0,
     milk_daily_liters: 0,
     milk_price_per_liter_uzs: 0,
@@ -71,8 +71,8 @@ export const UNIVERSAL_ANIMAL_FEED_NORMS: Record<string, AnimalDailyFeedNorm> = 
   echki: {
     species: 'Echki',
     category: 'Mayda tuyoqli',
-    beda_daily_boglam: 0.12,
-    yem_daily_kg: 0.4,
+    beda_daily_boglam: 0.03, // kunlik 0.03 bog'lam (~0.6 kg)
+    yem_daily_kg: 0.1,       // kunlik 100 gr yem
     silos_daily_tonna: 0,
     milk_daily_liters: 1.8,
     milk_price_per_liter_uzs: 10000,
@@ -80,8 +80,8 @@ export const UNIVERSAL_ANIMAL_FEED_NORMS: Record<string, AnimalDailyFeedNorm> = 
   ot: {
     species: 'Ot',
     category: 'Otsimon',
-    beda_daily_boglam: 0.4,
-    yem_daily_kg: 3.0,
+    beda_daily_boglam: 0.1,  // kunlik 0.1 bog'lam (~2 kg)
+    yem_daily_kg: 1.0,       // kunlik 1 kg arpa
     silos_daily_tonna: 0,
     milk_daily_liters: 0,
     milk_price_per_liter_uzs: 0,
@@ -89,17 +89,17 @@ export const UNIVERSAL_ANIMAL_FEED_NORMS: Record<string, AnimalDailyFeedNorm> = 
   tuya: {
     species: 'Tuya',
     category: 'Tuyasimon',
-    beda_daily_boglam: 0.6,
-    yem_daily_kg: 3.5,
-    silos_daily_tonna: 0.01,
+    beda_daily_boglam: 0.2,
+    yem_daily_kg: 1.5,
+    silos_daily_tonna: 0.005,
     milk_daily_liters: 4.0,
     milk_price_per_liter_uzs: 25000,
   },
   eshak: {
     species: 'Eshak',
     category: 'Otsimon',
-    beda_daily_boglam: 0.2,
-    yem_daily_kg: 1.0,
+    beda_daily_boglam: 0.05,
+    yem_daily_kg: 0.3,
     silos_daily_tonna: 0,
     milk_daily_liters: 0,
     milk_price_per_liter_uzs: 0,
@@ -108,7 +108,7 @@ export const UNIVERSAL_ANIMAL_FEED_NORMS: Record<string, AnimalDailyFeedNorm> = 
     species: 'Tovuq',
     category: 'Parranda',
     beda_daily_boglam: 0,
-    yem_daily_kg: 0.12,
+    yem_daily_kg: 0.1,
     silos_daily_tonna: 0,
     milk_daily_liters: 0,
     milk_price_per_liter_uzs: 0,
@@ -207,7 +207,7 @@ export function getInitialState(): PodachiState {
     },
     payrollRuns: [],
     feedReserveCycles: {
-      'farm-baraka-1': 2,
+      'farm-baraka-1': 1,
     },
   };
 }
@@ -238,7 +238,7 @@ export function loadState(): PodachiState {
 
     if (!parsed.feedReserveCycles) {
       parsed.feedReserveCycles = {
-        'farm-baraka-1': 2,
+        'farm-baraka-1': 1,
       };
       stateWasRepaired = true;
     }
@@ -1879,11 +1879,11 @@ export class PodachiBackendEngine {
   }
 
   /**
-   * Universal formula (Ax + By + Cz = E) asosida faqat fermada mavjud hayvonlar uchun
-   * minimal ozuqa to'ldirish me'yorini hisoblaydi (3 kunlik minimal ehtiyoj).
-   * Agar fermada tegishli hayvon bo'lmasa (masalan tovuq 0 bosh), 0 qaytaradi.
+   * Fermadagi mavjud hayvonlar bosh sonidan (Ax + By + Cz = E) kelib chiqib,
+   * tegishli ozuqa turining 15 kunlik minimal iste'mol miqdorini hisoblaydi.
+   * Agar fermada ushbu ozuqani iste'mol qiluvchi hayvon bo'lmasa, 0 qaytaradi.
    */
-  public getFeedRestockQuantityForAnimals(
+  public getFeed15DaysQuantityForAnimals(
     feed: FeedItem,
     farmGroups?: AnimalGroup[],
     feedFormula?: ReturnType<PodachiBackendEngine['calculateFarmFeedFormula']>
@@ -1912,18 +1912,24 @@ export class PodachiBackendEngine {
     } else if (feedType === 'silos' || unit === 'tonna' || feedName.includes('silos')) {
       dailyNeed = formula.totalSilosDailyTonna;
     } else if (feedType === 'vitamin' || unit === 'qop' || feedName.includes('vitamin') || feedName.includes('premiks')) {
-      dailyNeed = formula.totalHeads > 0 ? 0.5 : 0;
-    } else {
-      dailyNeed = formula.totalHeads > 0 ? 1 : 0;
+      dailyNeed = 0;
     }
 
     if (dailyNeed <= 0) return 0;
 
-    // Minimal zaxiraga tushganda faqat mavjud hayvonlar uchun yetadigan to'ldirish me'yori (3 kunlik ehtiyoj)
+    // Foydalanuvchi talabi: "15 kunlik ozuqa miqdorini minimal qiymat deya hisoblaylik"
     if (unit === 'tonna') {
-      return Math.max(1, Math.round(dailyNeed * 3 * 10) / 10);
+      return Math.round(dailyNeed * 15 * 10) / 10;
     }
-    return Math.max(1, Math.ceil(dailyNeed * 3));
+    return Math.round(dailyNeed * 15);
+  }
+
+  public getFeedRestockQuantityForAnimals(
+    feed: FeedItem,
+    farmGroups?: AnimalGroup[],
+    feedFormula?: ReturnType<PodachiBackendEngine['calculateFarmFeedFormula']>
+  ): number {
+    return this.getFeed15DaysQuantityForAnimals(feed, farmGroups, feedFormula);
   }
 
   // --- Daily Farm Cycle Preview (Hisob-kitobni oldindan ko'rish, yangi yozuv yaratmaydi) ---
@@ -2676,45 +2682,24 @@ export class PodachiBackendEngine {
     }
 
     const farmFeed = this.state.feedItems.filter(f => f.farm_id === targetFarmId);
-
-    // Faqat mavjud hayvonlarga zarur ozuqa turlari uchun narxlarni hisoblash
-    const singleFeedReplenishmentCosts: { feed: FeedItem; cost: number }[] = [];
+    let total15DaysCost = 0;
 
     farmFeed.forEach(feed => {
-      // Faqatgina fermada amalda mavjud bo'lgan hayvonlarga kerak bo'ladigan ozuqalar hisoblanadi
-      // (Masalan: fermada tovuq yo'q bo'lsa, tovuq uchun minimal miqdor hisoblanmaydi)
+      // 1. Faqatgina fermadagi mavjud hayvonlar iste'mol qiladigan X ta turdagi ozuqa hisoblanadi
+      // (Mavjud bo'lmagan hayvonlarga xos ozuqalar hisoblanmaydi)
       if (!this.isFeedNeededForExistingAnimals(feed, farmGroups, feedFormula)) {
         return;
       }
 
-      const restockQty = this.getFeedRestockQuantityForAnimals(feed, farmGroups, feedFormula);
-      if (restockQty <= 0) return;
+      // 2. Hayvonlar bosh sonidan kelib chiqib 15 kunlik ozuqa miqdori hisoblanadi
+      const qty15Days = this.getFeed15DaysQuantityForAnimals(feed, farmGroups, feedFormula);
+      if (qty15Days <= 0) return;
 
       const unitPrice = feed.unit_price_uzs || 30000;
-      const cost = restockQty * unitPrice;
-      singleFeedReplenishmentCosts.push({ feed, cost });
+      total15DaysCost += qty15Days * unitPrice;
     });
 
-    if (singleFeedReplenishmentCosts.length === 0) {
-      return 0;
-    }
-
-    // Foydalanuvchi qoidasi: "minimal chegaraga faqatgina 1 ta ozuqa turi tushsa hamma ozuqadan minimal qiymatda sotib olish kerak emas"
-    // Ya'ni 1 martalik ozuqa zaxirasi - barcha ozuqalar summasi emas, balki 1 ta ozuqa turi minimal chegaraga yetganda
-    // uni to'ldirishga yetadigan 1 ta ozuqa xaridi narxidir.
-    const currentlyLowFeeds = singleFeedReplenishmentCosts.filter(
-      item => item.feed.stock_quantity <= item.feed.min_threshold
-    );
-
-    if (currentlyLowFeeds.length > 0) {
-      // Agar amalda qaysidir ozuqa(lar) minimal chegaraga tushgan bo'lsa, o'sha ozuqalar xarid narxi
-      return currentlyLowFeeds.reduce((sum, item) => sum + item.cost, 0);
-    }
-
-    // Agar hali hech qaysi ozuqa chegaraga yetmagan bo'lsa, mavjud hayvonlar uchun eng asosiy (maksimal) 1 ta ozuqa xaridi narxi
-    // (Masalan: beda yoki yem to'ldirish narxi)
-    const maxSingleFeedCost = Math.max(...singleFeedReplenishmentCosts.map(item => item.cost));
-    return maxSingleFeedCost;
+    return total15DaysCost;
   }
 
   public getFarmFeedReserveCycles(farmId?: string): number {
@@ -2722,7 +2707,7 @@ export class PodachiBackendEngine {
     if (!this.state.feedReserveCycles) {
       this.state.feedReserveCycles = {};
     }
-    return this.state.feedReserveCycles[targetFarmId] ?? 2;
+    return this.state.feedReserveCycles[targetFarmId] ?? 1;
   }
 
   public setFarmFeedReserveCycles(cycles: number, farmId?: string): void {

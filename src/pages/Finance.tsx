@@ -201,7 +201,7 @@ export const Finance: React.FC = () => {
             {farmBalance.toLocaleString()} so'm
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            Likvid hisob (Admin ulushlari yechilganidan so'ng)
+            Likvid hisob (Rahbar sof foyda ulushlari yechilganidan so'ng)
           </p>
         </div>
 
@@ -260,11 +260,11 @@ export const Finance: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Xodimlar Oyligi &amp; Administrator Foydasi</span>
+                <span>Xodimlar Oyligi &amp; Rahbar Sof Foydasi</span>
                 <span className="text-[10px] bg-emerald-500 text-slate-950 font-extrabold px-2 py-0.5 rounded-full">Yangi Tizim</span>
               </h3>
               <p className="text-xs text-forest-200 mt-0.5">
-                Oyiga 2 marta (1-15 Avans, 16-31 Oylik). Minimal ozuqa zaxirasi saqlanib, qolgani rahbar oyligi sifatida ajratiladi.
+                Oyiga 2 marta (1-15 Avans, 16-31 Oylik). Tanlangan ozuqa zaxirasi saqlanib, ortgan pul rahbar sof foydasi sifatida ajratiladi.
               </p>
             </div>
           </div>

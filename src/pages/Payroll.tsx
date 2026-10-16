@@ -30,18 +30,22 @@ export const Payroll: React.FC = () => {
   const isHeadManager = currentRole === 'head_manager';
   const canAccess = isAdmin || isHeadManager;
 
-  // Real-time engine data
-  const financialSummary = backendEngine.getFarmFinancialSummary(farmId);
+  // Real-time engine data & configurable reserve cycles
+  const initialCycles = backendEngine.getFarmFeedReserveCycles(farmId);
   const employeeConfigs = backendEngine.getEmployeeSalaryConfigs(farmId);
   const periodInfo = backendEngine.getCurrentPayrollPeriodInfo();
   const payrollRuns = (backendEngine.getState().payrollRuns || []).filter(r => r.farm_id === farmId);
 
   // States
+  const [reserveCycles, setReserveCycles] = useState<number>(initialCycles);
   const [selectedPeriodType, setSelectedPeriodType] = useState<PayrollPeriodType>(periodInfo.periodType);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isEditSalaryModalOpen, setIsEditSalaryModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingSalary, setEditingSalary] = useState<number>(0);
+
+  const preview = backendEngine.previewPayrollDistribution(selectedPeriodType, undefined, reserveCycles);
+  const financialSummary = backendEngine.getFarmFinancialSummary(farmId, reserveCycles);
 
   if (!canAccess) {
     return (
@@ -61,8 +65,6 @@ export const Payroll: React.FC = () => {
     );
   }
 
-  const preview = backendEngine.previewPayrollDistribution(selectedPeriodType);
-
   const handleOpenEditSalary = (userId: string, currentSalary: number) => {
     setEditingUserId(userId);
     setEditingSalary(currentSalary);
@@ -81,11 +83,25 @@ export const Payroll: React.FC = () => {
     }
   };
 
+  const handleSetCycles = (cycles: number) => {
+    const val = Math.max(0, cycles);
+    setReserveCycles(val);
+    try {
+      backendEngine.setFarmFeedReserveCycles(val, farmId);
+      showToast(`Ozuqa zaxirasi ${val} martalik qilib saqlandi`, 'success');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
   const handleExecutePayroll = () => {
     try {
-      const res = backendEngine.executePayrollDistribution({ periodType: selectedPeriodType });
+      const res = backendEngine.executePayrollDistribution({
+        periodType: selectedPeriodType,
+        reserveCycles,
+      });
       showToast(
-        `${preview.periodType === 'avans' ? 'Avans' : 'Oylik'} muvaffaqiyatli to'landi! Xodimlar: ${res.total_employee_payout_uzs.toLocaleString()} so'm, Administrator: ${res.admin_payout_uzs.toLocaleString()} so'm`,
+        `${preview.periodType === 'avans' ? 'Avans' : 'Oylik'} muvaffaqiyatli to'landi! Xodimlar: ${res.total_employee_payout_uzs.toLocaleString()} so'm, Rahbar sof foyda ulushi: ${res.admin_payout_uzs.toLocaleString()} so'm`,
         'success'
       );
       setIsConfirmModalOpen(false);
@@ -111,7 +127,7 @@ export const Payroll: React.FC = () => {
             <Badge variant="forest">Faqat Rahbar &amp; Bosh Menejer</Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Oyiga 2 marotaba (1-15 sanalarda Avans, 16-31 sanalarda Oylik) ish haqi to'lash va 5 martalik ozuqa zaxirasi saqlangan holda rahbarga foyda taqsimlash
+            Oyiga 2 marotaba (1-15 sanalarda Avans, 16-31 sanalarda Oylik) ish haqi to'lash va belgilangan ozuqa zaxirasi saqlangan holda rahbarga sof foyda (dividend) taqsimlash
           </p>
         </div>
 
@@ -120,6 +136,50 @@ export const Payroll: React.FC = () => {
           <span className="text-emerald-800 dark:text-emerald-200 font-bold">
             Bugungi sana: {new Date().toISOString().split('T')[0]} ({new Date().getDate()}-kun)
           </span>
+        </div>
+      </div>
+
+      {/* Ozuqa Zaxirasi Sikllarini Belgilash (Administrator Boshqaruvi) */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-forest-500/10 dark:from-amber-950/30 dark:via-emerald-950/30 dark:to-forest-950/30 rounded-2xl p-5 border border-amber-300/40 dark:border-amber-700/40 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Wheat className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                Daxlsiz Ozuqa Zaxirasi Miqdori (Administrator Tanlovi)
+              </h3>
+              <Badge variant="amber" size="sm">
+                Faqat mavjud hayvonlar uchun
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl">
+              Fermadagi mavjud chorva bosh soni uchun 1 martalik ozuqa zaxirasi: <strong>{financialSummary.singleFeedCycleCost.toLocaleString()} so'm</strong>.
+              Ferma hisobida daxlsiz qoladigan zaxira sikllari sonini tanlang (ortgan mablag' Rahbar sof foydasiga o'tadi):
+            </p>
+          </div>
+
+          {/* Quick cycle buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {[1, 2, 3, 4, 5].map((num) => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => handleSetCycles(num)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-xs ${
+                  reserveCycles === num
+                    ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-slate-900'
+                    : 'bg-white dark:bg-[#0E1A16] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-forest-800/60 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                }`}
+              >
+                <span>{num} martalik</span>
+                {num === 2 && (
+                  <span className="text-[10px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-1 rounded font-bold">
+                    Tavsiya
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -141,19 +201,19 @@ export const Payroll: React.FC = () => {
           </p>
         </div>
 
-        {/* 5-martalik Ozuqa Zaxirasi */}
+        {/* N-martalik Ozuqa Zaxirasi */}
         <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-5 border border-slate-200/90 dark:border-forest-900/40 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">5 Martalik Ozuqa Zaxirasi</span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{reserveCycles} Martalik Ozuqa Zaxirasi</span>
             <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <Wheat className="w-5 h-5" />
             </div>
           </div>
           <div className="text-xl font-extrabold text-amber-600 dark:text-amber-400">
-            {financialSummary.fiveCyclesFeedReserve.toLocaleString()} so'm
+            {preview.feedReserveRetained.toLocaleString()} so'm
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Har 1 sikl: {financialSummary.singleFeedCycleCost.toLocaleString()} so'm (Ferma hisobida daxlsiz qoladi)
+            Har 1 sikl: {preview.singleFeedCost.toLocaleString()} so'm (Ferma hisobida daxlsiz qoladi)
           </p>
         </div>
 
@@ -173,10 +233,10 @@ export const Payroll: React.FC = () => {
           </p>
         </div>
 
-        {/* Administrator Oyligi / Foyda */}
+        {/* Rahbar Sof Foydasi (Dividend) */}
         <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-5 border border-slate-200/90 dark:border-forest-900/40 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Administrator Oyligi (Foyda)</span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Rahbar Sof Foydasi (Dividend)</span>
             <div className="w-9 h-9 rounded-xl bg-forest-50 dark:bg-forest-950/50 text-forest-700 dark:text-forest-400 flex items-center justify-center">
               <Coins className="w-5 h-5" />
             </div>
@@ -185,7 +245,7 @@ export const Payroll: React.FC = () => {
             {preview.adminPayout.toLocaleString()} so'm
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Ortgan pul: Balans - 5x Ozuqa zaxirasi (Xarajat hisoblanmaydi)
+            Ortgan sof foyda: Balans - Xodimlar - {reserveCycles}x Ozuqa zaxirasi
           </p>
         </div>
       </div>
@@ -265,7 +325,7 @@ export const Payroll: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300">
-              Xodimlarga oylik maoshining qolgan 50% qismi beriladi. Ortgan mablag' 5x zaxira qoldirilgach, Administratorga yo'naltiriladi.
+              Xodimlarga oylik maoshining qolgan 50% qismi beriladi. Ortgan mablag' {reserveCycles}x ozuqa zaxirasi qoldirilgach, Rahbarga sof foyda (dividend) sifatida ajratiladi.
             </p>
           </div>
         </div>
@@ -363,19 +423,19 @@ export const Payroll: React.FC = () => {
                       <p className="font-extrabold text-slate-900 dark:text-white">
                         {preview.adminUser?.user_name || 'Alisher Qodirov (Ferma Rahbari)'}
                       </p>
-                      <Badge size="sm" variant="forest">Administrator (Rahbar)</Badge>
+                      <Badge size="sm" variant="forest">Administrator (Ferma Rahbari)</Badge>
                     </div>
                   </div>
                 </td>
                 <td className="py-4 px-6 text-slate-500 dark:text-slate-400 italic">
-                  Belgilanmagan (Sof foydadan)
+                  Sof foyda ulushidan (Belgilanmagan)
                 </td>
                 <td className="py-4 px-6 font-extrabold text-emerald-700 dark:text-emerald-400">
                   {preview.adminPayout > 0 ? `+${preview.adminPayout.toLocaleString()} so'm` : '0 so\'m (Zaxira yetarli emas)'}
                 </td>
                 <td className="py-4 px-6" colSpan={2}>
-                  <span className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-md font-semibold border border-amber-200 dark:border-amber-900/40">
-                    Daxlsiz 5x zaxira ({preview.fiveCyclesFeedReserve.toLocaleString()} so'm) qoldirilgach, ortgan foyda
+                  <span className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-md font-semibold border border-emerald-200 dark:border-emerald-900/40">
+                    Daxlsiz {reserveCycles}x zaxira ({preview.feedReserveRetained.toLocaleString()} so'm) qoldirilgach, ortgan sof foyda ulushi (dividend)
                   </span>
                 </td>
               </tr>
@@ -402,10 +462,10 @@ export const Payroll: React.FC = () => {
                 <strong>Xodimlar oyligi:</strong> Bosh Menejer, Menejer va Bosh Veterinar maoshlari to'liq ferma operatsion <strong>xarajatlariga</strong> (`ish_haqi` toifasida) yoziladi va ferma balansini kamaytiradi.
               </li>
               <li>
-                <strong>5 Martalik Ozuqa Zaxirasi:</strong> Minimal ozuqa chegarasiga yetganda avtomatik sotib olinadigan xarid miqdoridan kamida 5 tasiga yetadigan mablag' (<strong>{preview.fiveCyclesFeedReserve.toLocaleString()} so'm</strong>) daxlsiz ravishda ferma hisobida saqlanib turadi.
+                <strong>{reserveCycles} Martalik Ozuqa Zaxirasi:</strong> Minimal ozuqa chegarasiga yetganda avtomatik sotib olinadigan xarid miqdoridan administrator tanlagan {reserveCycles} tasiga yetadigan mablag' (<strong>{preview.feedReserveRetained.toLocaleString()} so'm</strong>) daxlsiz ravishda ferma hisobida saqlanib turadi. Faqat fermada <em>mavjud hayvonlar</em> uchun zarur ozuqalar hisoblanadi.
               </li>
               <li>
-                <strong>Administrator Oyligi:</strong> Xodimlar maoshi to'lanib, 5 martalik ozuqa zaxirasi qoldirilgach, ortgan pul Administratorga yo'naltiriladi. Ushbu to'lov ferma xarajatiga ham, daromadiga ham qo'shilmaydi, lekin ferma hisobidan yechiladi.
+                <strong>Rahbar Sof Foydasi (Dividend):</strong> Xodimlar maoshi to'lanib, {reserveCycles} martalik ozuqa zaxirasi qoldirilgach, ortgan barcha pul Rahbarga sof foyda ulushi (dividend) sifatida yo'naltiriladi. Ushbu to'lov ferma xarajatiga ham, daromadiga ham qo'shilmaydi, lekin ferma hisobidan yechiladi.
               </li>
             </ul>
           </div>
@@ -429,8 +489,8 @@ export const Payroll: React.FC = () => {
                 <tr className="border-b border-slate-100 dark:border-forest-900/40 text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-[#070D0B]/50">
                   <th className="py-3 px-6">SANA &amp; DAVR</th>
                   <th className="py-3 px-6">XODIMLAR OYLIGI</th>
-                  <th className="py-3 px-6">5X OZUQA ZAXIRASI</th>
-                  <th className="py-3 px-6">ADMINISTRATOR FOYDASI</th>
+                  <th className="py-3 px-6">OZUQA ZAXIRASI</th>
+                  <th className="py-3 px-6">RAHBAR SOF FOYDASI</th>
                   <th className="py-3 px-6">QOLGAN BALANS</th>
                   <th className="py-3 px-6 text-right">MAS'UL</th>
                 </tr>
@@ -453,9 +513,11 @@ export const Payroll: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-6 font-bold text-amber-600 dark:text-amber-400">
                       {run.feed_reserve_retained_uzs.toLocaleString()} so'm
+                      <span className="block text-[10px] text-slate-400">{run.feed_reserve_cycles || 2}x zaxira</span>
                     </td>
                     <td className="py-3.5 px-6 font-bold text-emerald-600 dark:text-emerald-400">
                       {run.admin_payout_uzs > 0 ? `+${run.admin_payout_uzs.toLocaleString()} so'm` : '0 so\'m'}
+                      <span className="block text-[10px] text-slate-400">Sof foyda ulushi</span>
                     </td>
                     <td className="py-3.5 px-6 font-mono font-bold text-slate-800 dark:text-slate-200">
                       {run.farm_balance_after_run_uzs.toLocaleString()} so'm
@@ -499,13 +561,13 @@ export const Payroll: React.FC = () => {
               </span>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-forest-800/40">
-              <span className="text-amber-600 dark:text-amber-400 font-medium">Ferma hisobida qoladigan 5x ozuqa zaxirasi:</span>
+              <span className="text-amber-600 dark:text-amber-400 font-medium">Ferma hisobida qoladigan {reserveCycles}x ozuqa zaxirasi:</span>
               <span className="font-bold text-amber-600 dark:text-amber-400">
-                {preview.fiveCyclesFeedReserve.toLocaleString()} so'm
+                {preview.feedReserveRetained.toLocaleString()} so'm
               </span>
             </div>
             <div className="flex justify-between items-center py-1 pt-2">
-              <span className="text-emerald-700 dark:text-emerald-400 font-bold">Administratorga to'lanadigan oylik / foyda:</span>
+              <span className="text-emerald-700 dark:text-emerald-400 font-bold">Rahbarga ajratiladigan sof foyda ulushi (dividend):</span>
               <span className="font-extrabold text-base text-emerald-700 dark:text-emerald-400">
                 {preview.adminPayout.toLocaleString()} so'm
               </span>

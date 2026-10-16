@@ -398,11 +398,12 @@ export interface PayrollRunRecord {
   total_employee_payout_uzs: number;
   employees_paid: EmployeePayoutItem[];
   single_feed_cycle_cost_uzs: number;
+  feed_reserve_cycles?: number; // Administrator tanlagan minimal ozuqa karraligi (masalan, 1x, 2x, 3x)
   feed_reserve_retained_uzs: number;
   farm_balance_before_run_uzs: number;
   admin_user_id?: string;
   admin_user_name?: string;
-  admin_payout_uzs: number;
+  admin_payout_uzs: number; // Rahbar sof foyda ulushi (dividend)
   farm_balance_after_run_uzs: number;
   created_by_name: string;
   created_by_role: UserRole;
@@ -416,6 +417,8 @@ export interface FarmFinancialSummary {
   totalAdminPayouts: number;
   farmBalance: number;
   singleFeedCycleCost: number;
-  fiveCyclesFeedReserve: number;
+  feedReserveCyclesCount: number; // Tanlangan zaxira karraligi (default: 2)
+  feedReserveCyclesCost: number; // Tanlangan karralikka ko'ra zaxira summasi
+  fiveCyclesFeedReserve: number; // backward compatibility
   adminAvailableSurplus: number;
 }

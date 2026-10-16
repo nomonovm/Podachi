@@ -176,6 +176,7 @@ export interface PodachiState {
   auditLogs: AuditLog[];
   employeeSalaries?: Record<string, number>;
   payrollRuns?: PayrollRunRecord[];
+  feedReserveCycles?: Record<string, number>;
 }
 
 export function getInitialState(): PodachiState {
@@ -205,6 +206,9 @@ export function getInitialState(): PodachiState {
       'user-vet-1': 7500000,
     },
     payrollRuns: [],
+    feedReserveCycles: {
+      'farm-baraka-1': 2,
+    },
   };
 }
 
@@ -229,6 +233,13 @@ export function loadState(): PodachiState {
 
     if (!Array.isArray(parsed.payrollRuns)) {
       parsed.payrollRuns = [];
+      stateWasRepaired = true;
+    }
+
+    if (!parsed.feedReserveCycles) {
+      parsed.feedReserveCycles = {
+        'farm-baraka-1': 2,
+      };
       stateWasRepaired = true;
     }
 
@@ -1787,6 +1798,86 @@ export class PodachiBackendEngine {
     };
   }
 
+  public isFeedNeededForExistingAnimals(
+    feed: FeedItem,
+    farmGroups: AnimalGroup[],
+    feedFormula?: ReturnType<PodachiBackendEngine['calculateFarmFeedFormula']>
+  ): boolean {
+    const activeGroups = farmGroups.filter(g => g.current_head_count > 0);
+    if (activeGroups.length === 0) return false;
+
+    const formula = feedFormula || this.calculateFarmFeedFormula(activeGroups);
+    if (formula.totalHeads === 0) return false;
+
+    const existingSpecies = activeGroups.map(g => g.species.toLowerCase());
+    const feedName = feed.name.toLowerCase();
+    const feedType = feed.feed_type.toLowerCase();
+
+    // 1. Jonivor nomi ozuqa nomida bevosita ko'rsatilgan bo'lsa (Masalan: tovuq yemi, quyon ozuqasi, ot yemi)
+    const hasPoultryKeyword =
+      feedName.includes('tovuq') ||
+      feedName.includes('parranda') ||
+      feedName.includes('jo\'ja') ||
+      feedName.includes('joj') ||
+      feedName.includes('o\'rdak') ||
+      feedName.includes('ordak') ||
+      feedName.includes('g\'oz') ||
+      feedName.includes('goz') ||
+      feedName.includes('kurka');
+
+    if (hasPoultryKeyword) {
+      const hasPoultryOnFarm = existingSpecies.some(
+        s =>
+          s.includes('tovuq') ||
+          s.includes('parranda') ||
+          s.includes('o\'rdak') ||
+          s.includes('ordak') ||
+          s.includes('g\'oz') ||
+          s.includes('goz') ||
+          s.includes('kurka')
+      );
+      if (!hasPoultryOnFarm) return false; // Fermada tovuq/parranda mavjud bo'lmasa, tovuq yemi hisoblanmaydi!
+    }
+
+    if (feedName.includes('quyon')) {
+      const hasQuyon = existingSpecies.some(s => s.includes('quyon'));
+      if (!hasQuyon) return false;
+    }
+
+    if (feedName.includes('ot ') || feedName.includes('otlar') || feedName.includes('toy')) {
+      const hasOt = existingSpecies.some(s => s.includes('ot'));
+      if (!hasOt) return false;
+    }
+
+    if (feedName.includes('tuya') || feedName.includes('bo\'taloq')) {
+      const hasTuya = existingSpecies.some(s => s.includes('tuya'));
+      if (!hasTuya) return false;
+    }
+
+    // 2. Ozuqa toifasiga ko'ra universal formuladagi sarf tekshiruvi:
+    // Silos faqat qoramol va tuya kabi silos iste'mol qiluvchi mavjud jonivorlarga kerak
+    if (feedType === 'silos' || feed.unit === 'tonna' || feedName.includes('silos')) {
+      return formula.totalSilosDailyTonna > 0;
+    }
+
+    // Beda va xashak faqat beda iste'mol qiluvchi mavjud jonivorlarga kerak (masalan, tovuqda 0)
+    if (feedType === 'xashak' || feed.unit === 'bog\'lam' || feedName.includes('beda') || feedName.includes('somon')) {
+      return formula.totalBedaDaily > 0;
+    }
+
+    // Donli / aralash yem faqat yem iste'mol qiluvchi mavjud jonivorlarga kerak
+    if (feedType === 'yem' || feed.unit === 'kg' || feedName.includes('yem') || feedName.includes('arpa') || feedName.includes('bug\'doy')) {
+      return formula.totalYemDailyKg > 0;
+    }
+
+    // Vitamin va premikslar umumiy bosh soniga bog'liq
+    if (feedType === 'vitamin' || feed.unit === 'qop' || feedName.includes('vitamin') || feedName.includes('premiks')) {
+      return formula.totalHeads > 0;
+    }
+
+    return formula.totalHeads > 0;
+  }
+
   // --- Daily Farm Cycle Preview (Hisob-kitobni oldindan ko'rish, yangi yozuv yaratmaydi) ---
   public calculateDailyFarmCyclePreview(): DailyFarmCycleSummary {
     const today = new Date().toISOString().split('T')[0];
@@ -1838,6 +1929,10 @@ export class PodachiBackendEngine {
     const feedDeductions: { name: string; quantity: number; unit: string; currentStock: number }[] = [];
 
     farmFeed.forEach(feed => {
+      if (!this.isFeedNeededForExistingAnimals(feed, farmGroups, feedFormula)) {
+        return;
+      }
+
       let consumeQty = 0;
       const ft = feed.feed_type;
       const nm = feed.name.toLowerCase();
@@ -1862,10 +1957,14 @@ export class PodachiBackendEngine {
       }
     });
 
-    // 3. Minimal chegaraga yetgan yemlarni avtomatik to'ldirish hisobi
+    // 3. Minimal chegaraga yetgan yemlarni avtomatik to'ldirish hisobi (faqat mavjud chorva uchun)
     const feedReplenishments: { name: string; quantity: number; unit: string; cost: number; currentStock: number; threshold: number }[] = [];
 
     farmFeed.forEach(feed => {
+      if (!this.isFeedNeededForExistingAnimals(feed, farmGroups, feedFormula)) {
+        return;
+      }
+
       const deduction = feedDeductions.find(d => d.name === feed.name)?.quantity || 0;
       const stockAfterDeduct = feed.stock_quantity - deduction;
 
@@ -2041,6 +2140,10 @@ export class PodachiBackendEngine {
     const feedDeductions: DailyFarmCycleSummary['feedDeductions'] = [];
 
     farmFeed.forEach(feed => {
+      if (!this.isFeedNeededForExistingAnimals(feed, farmGroups, feedFormula)) {
+        return;
+      }
+
       let consumeQty = 0;
       const ft = feed.feed_type;
       const nm = feed.name.toLowerCase();
@@ -2093,10 +2196,14 @@ export class PodachiBackendEngine {
       });
     }
 
-    // 3. Yem minimal chegara ogohlantirishiga (min_threshold) yetganda avtomatik sotib olish va xarajatlarga yozish
+    // 3. Yem minimal chegara ogohlantirishiga (min_threshold) yetganda avtomatik sotib olish va xarajatlarga yozish (faqat mavjud chorva uchun)
     const feedReplenishments: DailyFarmCycleSummary['feedReplenishments'] = [];
 
     farmFeed.forEach(feed => {
+      if (!this.isFeedNeededForExistingAnimals(feed, farmGroups, feedFormula)) {
+        return;
+      }
+
       if (feed.stock_quantity <= feed.min_threshold) {
         let restockQty = 0;
         if (feed.unit === 'bog\'lam') restockQty = Math.max(500, feed.min_threshold * 3);
@@ -2518,9 +2625,24 @@ export class PodachiBackendEngine {
 
   public getFeedReplenishmentCycleCost(farmId?: string): number {
     const targetFarmId = farmId || this.state.currentFarmId;
+    const farmGroups = this.state.animalGroups.filter(g => g.farm_id === targetFarmId && g.current_head_count > 0);
+    const feedFormula = this.calculateFarmFeedFormula(farmGroups);
+
+    // Agar fermada chorva mavjud bo'lmasa, ozuqa zaxirasi talab etilmaydi
+    if (feedFormula.totalHeads === 0) {
+      return 0;
+    }
+
     const farmFeed = this.state.feedItems.filter(f => f.farm_id === targetFarmId);
     let totalCost = 0;
+
     farmFeed.forEach(feed => {
+      // Faqatgina fermada amalda mavjud bo'lgan hayvonlarga kerak bo'ladigan ozuqalar hisoblanadi
+      // (Masalan: fermada tovuq yo'q bo'lsa, tovuq uchun minimal miqdor hisoblanmaydi)
+      if (!this.isFeedNeededForExistingAnimals(feed, farmGroups, feedFormula)) {
+        return;
+      }
+
       let restockQty = 0;
       if (feed.unit === 'bog\'lam') restockQty = Math.max(500, feed.min_threshold * 3);
       else if (feed.unit === 'kg') restockQty = Math.max(3000, feed.min_threshold * 2);
@@ -2531,11 +2653,49 @@ export class PodachiBackendEngine {
       const unitPrice = feed.unit_price_uzs || 30000;
       totalCost += restockQty * unitPrice;
     });
-    return totalCost > 0 ? totalCost : 5000000;
+
+    return totalCost;
+  }
+
+  public getFarmFeedReserveCycles(farmId?: string): number {
+    const targetFarmId = farmId || this.state.currentFarmId;
+    if (!this.state.feedReserveCycles) {
+      this.state.feedReserveCycles = {};
+    }
+    return this.state.feedReserveCycles[targetFarmId] ?? 2;
+  }
+
+  public setFarmFeedReserveCycles(cycles: number, farmId?: string): void {
+    this.checkPermission(['admin', 'head_manager'], 'payroll', 'Ozuqa zaxirasi karraligini o\'zgartirish');
+    if (cycles < 0) throw new Error("Zaxira karraligi manfiy bo'lishi mumkin emas.");
+    const targetFarmId = farmId || this.state.currentFarmId;
+    if (!this.state.feedReserveCycles) {
+      this.state.feedReserveCycles = {};
+    }
+    this.state.feedReserveCycles[targetFarmId] = cycles;
+
+    this.logAudit({
+      farm_id: targetFarmId,
+      action_type: 'SETTINGS_CHANGE',
+      result: 'SUCCESS',
+      resource_name: 'payroll',
+      details: `Administrator ozuqa zaxirasi daxlsiz qoldig'ini ${cycles} martalikka soziladi`,
+    });
+
+    this.notify();
+  }
+
+  public getFeedReserveCost(farmId?: string, customCycles?: number): number {
+    const cycles = customCycles !== undefined ? customCycles : this.getFarmFeedReserveCycles(farmId);
+    return this.getFeedReplenishmentCycleCost(farmId) * cycles;
+  }
+
+  public getTwoCyclesFeedReserve(farmId?: string): number {
+    return this.getFeedReserveCost(farmId, 2);
   }
 
   public getFiveCyclesFeedReserve(farmId?: string): number {
-    return this.getFeedReplenishmentCycleCost(farmId) * 5;
+    return this.getFeedReserveCost(farmId);
   }
 
   public getFarmBalance(farmId?: string): number {
@@ -2543,7 +2703,7 @@ export class PodachiBackendEngine {
     return summary.farmBalance;
   }
 
-  public getFarmFinancialSummary(farmId?: string): FarmFinancialSummary {
+  public getFarmFinancialSummary(farmId?: string, customCycles?: number): FarmFinancialSummary {
     const targetFarmId = farmId || this.state.currentFarmId;
     const farmFinances = this.state.finances.filter(f => f.farm_id === targetFarmId && !f.is_cancelled);
     const totalRevenue = farmFinances.filter(f => f.type === 'daromad').reduce((sum, f) => sum + f.amount_uzs, 0);
@@ -2556,8 +2716,9 @@ export class PodachiBackendEngine {
 
     const farmBalance = netProfit - totalAdminPayouts;
     const singleFeedCycleCost = this.getFeedReplenishmentCycleCost(targetFarmId);
-    const fiveCyclesFeedReserve = singleFeedCycleCost * 5;
-    const adminAvailableSurplus = Math.max(0, farmBalance - fiveCyclesFeedReserve);
+    const cyclesCount = customCycles !== undefined ? customCycles : this.getFarmFeedReserveCycles(targetFarmId);
+    const feedReserveCyclesCost = singleFeedCycleCost * cyclesCount;
+    const adminAvailableSurplus = Math.max(0, farmBalance - feedReserveCyclesCost);
 
     return {
       totalRevenue,
@@ -2566,7 +2727,9 @@ export class PodachiBackendEngine {
       totalAdminPayouts,
       farmBalance,
       singleFeedCycleCost,
-      fiveCyclesFeedReserve,
+      feedReserveCyclesCount: cyclesCount,
+      feedReserveCyclesCost,
+      fiveCyclesFeedReserve: feedReserveCyclesCost,
       adminAvailableSurplus,
     };
   }
@@ -2661,11 +2824,12 @@ export class PodachiBackendEngine {
     };
   }
 
-  public previewPayrollDistribution(forcePeriodType?: PayrollPeriodType, paymentDateStr?: string) {
+  public previewPayrollDistribution(forcePeriodType?: PayrollPeriodType, paymentDateStr?: string, customReserveCycles?: number) {
     const farmId = this.state.currentFarmId;
     const date = paymentDateStr ? new Date(paymentDateStr) : new Date();
     const periodInfo = this.getCurrentPayrollPeriodInfo(paymentDateStr);
     const periodType = forcePeriodType || periodInfo.periodType;
+    const reserveCycles = customReserveCycles !== undefined ? customReserveCycles : this.getFarmFeedReserveCycles(farmId);
 
     const employees = this.getEmployeeSalaryConfigs(farmId);
     const employeesPaid: EmployeePayoutItem[] = employees.map(e => ({
@@ -2679,13 +2843,13 @@ export class PodachiBackendEngine {
 
     const totalEmployeePayout = employeesPaid.reduce((sum, e) => sum + e.period_amount_uzs, 0);
 
-    const financialSummary = this.getFarmFinancialSummary(farmId);
+    const financialSummary = this.getFarmFinancialSummary(farmId, reserveCycles);
     const farmBalanceBefore = financialSummary.farmBalance;
     const singleFeedCost = financialSummary.singleFeedCycleCost;
-    const fiveCyclesFeedReserve = financialSummary.fiveCyclesFeedReserve;
+    const feedReserveRetained = financialSummary.feedReserveCyclesCost;
 
     const balanceAfterEmployees = farmBalanceBefore - totalEmployeePayout;
-    const adminPayout = Math.max(0, balanceAfterEmployees - fiveCyclesFeedReserve);
+    const adminPayout = Math.max(0, balanceAfterEmployees - feedReserveRetained);
     const farmBalanceAfter = balanceAfterEmployees - adminPayout;
 
     const adminMember = this.state.farmMembers.find(
@@ -2700,7 +2864,10 @@ export class PodachiBackendEngine {
       employeesPaid,
       totalEmployeePayout,
       singleFeedCost,
-      fiveCyclesFeedReserve,
+      reserveCycles,
+      feedReserveCycles: reserveCycles,
+      fiveCyclesFeedReserve: feedReserveRetained, // backward compatibility
+      feedReserveRetained,
       farmBalanceBefore,
       balanceAfterEmployees,
       adminPayout,
@@ -2713,12 +2880,20 @@ export class PodachiBackendEngine {
   public executePayrollDistribution(options?: {
     periodType?: PayrollPeriodType;
     paymentDate?: string;
+    reserveCycles?: number;
   }): PayrollRunRecord {
     this.checkPermission(['admin', 'head_manager'], 'payroll', 'Oylik va ish haqini taqsimlash');
 
     const farmId = this.state.currentFarmId;
     const today = options?.paymentDate || new Date().toISOString().split('T')[0];
-    const preview = this.previewPayrollDistribution(options?.periodType, today);
+    const preview = this.previewPayrollDistribution(options?.periodType, today, options?.reserveCycles);
+
+    if (options?.reserveCycles !== undefined && options.reserveCycles >= 0) {
+      if (!this.state.feedReserveCycles) {
+        this.state.feedReserveCycles = {};
+      }
+      this.state.feedReserveCycles[farmId] = options.reserveCycles;
+    }
 
     // Tekshiruv: Oyda 2 martadan ko'p bajarilmasin (1-15 bir marta, 16-30/31 bir marta)
     const existingRun = (this.state.payrollRuns || []).find(
@@ -2761,7 +2936,7 @@ export class PodachiBackendEngine {
       });
     }
 
-    // 2. Administratorga oylik / sof foyda ulushi (Daromad ham xarajat ham deb hisoblanmaydi, lekin ferma balansidan yechiladi)
+    // 2. Administratorga sof foyda ulushi / dividend (Daromad ham xarajat ham deb hisoblanmaydi, lekin ferma balansidan yechiladi)
     const runRecord: PayrollRunRecord = {
       id: 'payroll-run-' + Math.random().toString(36).substring(2, 9),
       farm_id: farmId,
@@ -2772,7 +2947,8 @@ export class PodachiBackendEngine {
       total_employee_payout_uzs: preview.totalEmployeePayout,
       employees_paid: preview.employeesPaid,
       single_feed_cycle_cost_uzs: preview.singleFeedCost,
-      feed_reserve_retained_uzs: preview.fiveCyclesFeedReserve,
+      feed_reserve_cycles: preview.reserveCycles,
+      feed_reserve_retained_uzs: preview.feedReserveRetained,
       farm_balance_before_run_uzs: preview.farmBalanceBefore,
       admin_user_id: preview.adminUser?.user_id,
       admin_user_name: preview.adminUser?.user_name,
@@ -2794,7 +2970,7 @@ export class PodachiBackendEngine {
         action_type: 'ADMIN_PROFIT_PAYOUT',
         result: 'SUCCESS',
         resource_name: 'payroll',
-        details: `Administrator ${preview.adminUser?.user_name || 'Rahbar'} ga sof foydadan oylik/dividend ajratildi: ${preview.adminPayout.toLocaleString()} so'm (Ferma hisobida 5 martalik minimal ozuqa zaxirasi: ${preview.fiveCyclesFeedReserve.toLocaleString()} so'm qoldirildi)`,
+        details: `Administrator ${preview.adminUser?.user_name || 'Rahbar'} ga sof foyda ulushi (dividend) ajratildi: ${preview.adminPayout.toLocaleString()} so'm (Ferma hisobida faqat mavjud hayvonlar uchun ${preview.reserveCycles} martalik minimal ozuqa zaxirasi: ${preview.feedReserveRetained.toLocaleString()} so'm qoldirildi)`,
       });
     }
 

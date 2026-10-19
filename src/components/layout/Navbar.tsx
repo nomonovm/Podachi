@@ -11,8 +11,6 @@ import {
   LogOut,
   Sun,
   Moon,
-  Menu,
-  X,
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 
@@ -23,8 +21,6 @@ export const Navbar: React.FC = () => {
     currentFarm,
     currentRole,
     isDarkMode,
-    isMobileMenuOpen,
-    setIsMobileMenuOpen,
     toggleDarkMode,
     logout,
     setCurrentUser,
@@ -56,20 +52,6 @@ export const Navbar: React.FC = () => {
           
           {/* Brand Logo & Name */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Mobile Menu Toggle Button */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 -ml-1 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              aria-label="Menyu"
-              title="Menyuni ochish"
-            >
-              {isMobileMenuOpen ? (
-                <X className="w-5 h-5 text-forest-700 dark:text-forest-400" />
-              ) : (
-                <Menu className="w-5 h-5 text-forest-700 dark:text-forest-400" />
-              )}
-            </button>
-
             <button
               onClick={() => setActiveTab('dashboard')}
               className="flex items-center gap-2.5 sm:gap-3 text-left focus:outline-none group"

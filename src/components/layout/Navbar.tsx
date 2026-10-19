@@ -45,13 +45,106 @@ export const Navbar: React.FC = () => {
   );
   const myFarms = state.farms.filter(f => myFarmMemberships.some(m => m.farm_id === f.id));
 
+  const renderFarmSelector = (isMobile: boolean = false) => (
+    <div className="relative">
+      <button
+        onClick={() => {
+          setFarmMenuOpen(!farmMenuOpen);
+          setUserMenuOpen(false);
+        }}
+        className={`flex items-center gap-1.5 sm:gap-2 rounded-xl border border-slate-200 dark:border-forest-800/60 bg-slate-50 dark:bg-slate-900/80 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-200 text-sm font-semibold transition shrink-0 ${
+          isMobile ? 'px-2.5 py-1.5' : 'px-3.5 py-2'
+        }`}
+        title="Faol fermani tanlash"
+      >
+        <Building2 className="w-4 h-4 text-forest-700 dark:text-forest-400 shrink-0" />
+        <div className={`text-left ${isMobile ? 'hidden' : 'block max-w-[180px] lg:max-w-xs truncate'}`}>
+          <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-normal leading-tight uppercase tracking-wider">Faol Ferma:</span>
+          <span className="text-slate-900 dark:text-white font-bold truncate block text-xs sm:text-sm">
+            {currentFarm?.display_title || currentFarm?.name || 'Ferma tanlanmagan'}
+          </span>
+        </div>
+        <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+      </button>
+
+      {farmMenuOpen && (
+        <>
+          <div
+            onClick={() => setFarmMenuOpen(false)}
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-2xs"
+            aria-hidden="true"
+          />
+          <div className="fixed inset-x-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-2 z-50">
+            <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mening fermalarim</p>
+            </div>
+            <div className="max-h-60 overflow-y-auto py-1">
+              {myFarms.map(f => {
+                const isSelected = f.id === currentFarm?.id;
+                const roleInThisFarm = state.farmMembers.find(
+                  m => m.farm_id === f.id && m.user_id === currentUser.id
+                )?.role;
+
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      setCurrentFarm(f.id);
+                      setFarmMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2.5 flex items-start justify-between hover:bg-slate-50 dark:hover:bg-slate-800/60 transition ${
+                      isSelected ? 'bg-forest-50/70 dark:bg-forest-950/60 border-l-4 border-forest-600' : ''
+                    }`}
+                  >
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{f.display_title || f.name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{f.location}</p>
+                    </div>
+                    {roleInThisFarm && (
+                      <Badge size="sm" variant={roleLabels[roleInThisFarm]?.variant || 'slate'}>
+                        {roleLabels[roleInThisFarm]?.label || roleInThisFarm}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-slate-100 dark:border-slate-800 p-2 space-y-1">
+              <button
+                onClick={() => {
+                  setFarmMenuOpen(false);
+                  setActiveTab('farm-create');
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-forest-800 dark:text-forest-300 hover:bg-forest-50 dark:hover:bg-forest-950/60 rounded-lg transition"
+              >
+                <PlusCircle className="w-4 h-4 text-forest-600 dark:text-forest-400" />
+                Yangi ferma ochish
+              </button>
+              <button
+                onClick={() => {
+                  setFarmMenuOpen(false);
+                  setActiveTab('farm-join');
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+              >
+                <LogIn className="w-4 h-4 text-slate-500" />
+                Nom orqali fermaga qo'shilish
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0C1714]/95 backdrop-blur-md border-b border-slate-200/90 dark:border-forest-900/60 shadow-xs transition-colors duration-200 shrink-0">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
+    <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0C1714]/95 backdrop-blur-md border-b border-slate-200/90 dark:border-forest-900/60 shadow-xs transition-colors duration-200 shrink-0 w-full">
+      <div className="w-full px-3.5 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-3">
           
-          {/* Brand Logo & Name */}
-          <div className="flex items-center min-w-0">
+          {/* Brand Logo & Name (md:w-60 to align with sidebar) */}
+          <div className="flex items-center md:w-60 shrink-0">
             <button
               onClick={() => setActiveTab('dashboard')}
               className="flex items-center gap-2 sm:gap-3 text-left focus:outline-none group min-w-0"
@@ -75,95 +168,16 @@ export const Navbar: React.FC = () => {
             </button>
           </div>
 
+          {/* Desktop Center: Active Farm Selector */}
+          <div className="hidden md:flex flex-1 justify-center items-center">
+            {renderFarmSelector(false)}
+          </div>
+
           {/* Right Action Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-
-            {/* Active Farm Selector */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  setFarmMenuOpen(!farmMenuOpen);
-                  setUserMenuOpen(false);
-                }}
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-3.5 rounded-xl border border-slate-200 dark:border-forest-800/60 bg-slate-50 dark:bg-slate-900/80 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-200 text-sm font-semibold transition shrink-0"
-                title="Faol fermani tanlash"
-              >
-                <Building2 className="w-4 h-4 text-forest-700 dark:text-forest-400 shrink-0" />
-                <div className="text-left hidden md:block max-w-[130px] lg:max-w-xs truncate">
-                  <span className="block text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-tight">Faol Ferma:</span>
-                  <span className="text-slate-900 dark:text-white font-bold truncate block">{currentFarm?.display_title || currentFarm?.name || 'Ferma tanlanmagan'}</span>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              </button>
-
-              {farmMenuOpen && (
-                <>
-                  <div
-                    onClick={() => setFarmMenuOpen(false)}
-                    className="fixed inset-0 z-40 bg-black/40 backdrop-blur-2xs"
-                    aria-hidden="true"
-                  />
-                  <div className="fixed inset-x-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-2 z-50">
-                    <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800">
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mening fermalarim</p>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto py-1">
-                      {myFarms.map(f => {
-                        const isSelected = f.id === currentFarm?.id;
-                        const roleInThisFarm = state.farmMembers.find(
-                          m => m.farm_id === f.id && m.user_id === currentUser.id
-                        )?.role;
-
-                        return (
-                          <button
-                            key={f.id}
-                            onClick={() => {
-                              setCurrentFarm(f.id);
-                              setFarmMenuOpen(false);
-                            }}
-                            className={`w-full text-left px-3.5 py-2.5 flex items-start justify-between hover:bg-slate-50 dark:hover:bg-slate-800/60 transition ${
-                              isSelected ? 'bg-forest-50/70 dark:bg-forest-950/60 border-l-4 border-forest-600' : ''
-                            }`}
-                          >
-                            <div>
-                              <p className="text-sm font-bold text-slate-900 dark:text-white">{f.display_title || f.name}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">{f.location}</p>
-                            </div>
-                            {roleInThisFarm && (
-                              <Badge size="sm" variant={roleLabels[roleInThisFarm]?.variant || 'slate'}>
-                                {roleLabels[roleInThisFarm]?.label || roleInThisFarm}
-                              </Badge>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="border-t border-slate-100 dark:border-slate-800 p-2 space-y-1">
-                      <button
-                        onClick={() => {
-                          setFarmMenuOpen(false);
-                          setActiveTab('farm-create');
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-forest-800 dark:text-forest-300 hover:bg-forest-50 dark:hover:bg-forest-950/60 rounded-lg transition"
-                      >
-                        <PlusCircle className="w-4 h-4 text-forest-600 dark:text-forest-400" />
-                        Yangi ferma ochish
-                      </button>
-                      <button
-                        onClick={() => {
-                          setFarmMenuOpen(false);
-                          setActiveTab('farm-join');
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
-                      >
-                        <LogIn className="w-4 h-4 text-slate-500" />
-                        Nom orqali fermaga qo'shilish
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
+            {/* Mobile Farm Selector */}
+            <div className="md:hidden">
+              {renderFarmSelector(true)}
             </div>
 
             {/* Dark Mode Toggle */}

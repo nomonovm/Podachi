@@ -103,7 +103,8 @@ export const Dashboard: React.FC = () => {
   });
   const speciesData = Object.entries(speciesMap).map(([name, value]) => ({ name, value }));
 
-  const COLORS = ['#235848', '#388B70', '#5EA78E', '#94C6B3', '#DCD9C9', '#F59E0B'];
+  // Distinct, high-contrast colors for each livestock species
+  const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#F43F5E', '#8B5CF6', '#06B6D4'];
 
   // Financial overview data for Bar Chart — computed from real records
   const monthNames = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
@@ -289,14 +290,19 @@ export const Dashboard: React.FC = () => {
                     dataKey="value"
                   >
                     {speciesData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                        stroke={isDarkMode ? '#0E1A16' : '#ffffff'}
+                        strokeWidth={2}
+                      />
                     ))}
                   </Pie>
                   <Tooltip
                     formatter={(value: any) => [`${value} bosh`, 'Miqdor']}
                     contentStyle={{ backgroundColor: isDarkMode ? '#0F172A' : '#0C201B', color: '#fff', borderRadius: '12px', border: 'none' }}
                   />
-                  <Legend />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (

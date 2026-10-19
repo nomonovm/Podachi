@@ -2,6 +2,8 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
+import { BottomNav } from './components/layout/BottomNav';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { ToastContainer } from './components/ui/Toast';
 
 // Auth Screen
@@ -136,9 +138,11 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <main className="flex-1 h-full overflow-y-auto min-h-0">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-        {renderContent()}
+    <main className="flex-1 w-full h-full overflow-y-auto min-h-0 pb-16 md:pb-0">
+      <div className="p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <ErrorBoundary>
+          {renderContent()}
+        </ErrorBoundary>
       </div>
     </main>
   );
@@ -159,10 +163,11 @@ const AppShell: React.FC = () => {
   return (
     <div className="h-screen overflow-hidden bg-[#F8FAF8] dark:bg-[#070E0B] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       <Navbar />
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
         <Sidebar />
         <MainContent />
       </div>
+      <BottomNav />
       <ToastContainer />
     </div>
   );

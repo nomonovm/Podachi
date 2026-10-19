@@ -11,6 +11,8 @@ import {
   LogOut,
   Sun,
   Moon,
+  Menu,
+  X,
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 
@@ -21,6 +23,8 @@ export const Navbar: React.FC = () => {
     currentFarm,
     currentRole,
     isDarkMode,
+    isMobileMenuOpen,
+    setIsMobileMenuOpen,
     toggleDarkMode,
     logout,
     setCurrentUser,
@@ -51,10 +55,24 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           
           {/* Brand Logo & Name */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Mobile Menu Toggle Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 -ml-1 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              aria-label="Menyu"
+              title="Menyuni ochish"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-5 h-5 text-forest-700 dark:text-forest-400" />
+              ) : (
+                <Menu className="w-5 h-5 text-forest-700 dark:text-forest-400" />
+              )}
+            </button>
+
             <button
               onClick={() => setActiveTab('dashboard')}
-              className="flex items-center gap-3 text-left focus:outline-none group"
+              className="flex items-center gap-2.5 sm:gap-3 text-left focus:outline-none group"
             >
               <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-forest-700/20 bg-[#F9F8F4] group-hover:scale-105 transition-transform flex items-center justify-center">
                 <img src="/logo.png" alt="Podachi Logo" className="w-full h-full object-cover" />

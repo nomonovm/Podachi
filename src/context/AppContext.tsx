@@ -35,6 +35,8 @@ interface AppContextType {
   currentRole: UserRole;
   isAuthenticated: boolean;
   isDarkMode: boolean;
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (open: boolean) => void;
   activeTab: NavigationTab;
   setActiveTab: (tab: NavigationTab) => void;
   setCurrentUser: (user: UserProfile) => void;
@@ -53,8 +55,14 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<PodachiState>(backendEngine.getState());
-  const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
+  const [activeTab, setActiveTabState] = useState<NavigationTab>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const setActiveTab = (tab: NavigationTab) => {
+    setActiveTabState(tab);
+    setIsMobileMenuOpen(false);
+  };
 
   useEffect(() => {
     // Sync dark mode class on mount
@@ -152,6 +160,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentRole,
         isAuthenticated: state.isAuthenticated,
         isDarkMode: state.isDarkMode,
+        isMobileMenuOpen,
+        setIsMobileMenuOpen,
         activeTab,
         setActiveTab,
         setCurrentUser: handleSetCurrentUser,

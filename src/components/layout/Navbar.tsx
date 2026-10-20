@@ -143,16 +143,16 @@ export const Navbar: React.FC = () => {
       <div className="w-full px-3.5 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16 gap-3">
           
-          {/* Brand Logo & Name (md:w-60 to align with sidebar) */}
-          <div className="flex items-center md:w-60 shrink-0">
+          {/* Brand Logo & Name */}
+          <div className="flex items-center shrink-0">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className="flex items-center gap-2 sm:gap-3 text-left focus:outline-none group min-w-0"
+              className="flex items-center gap-2 sm:gap-3 text-left focus:outline-none group"
             >
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-xs border border-forest-700/20 bg-[#F9F8F4] group-hover:scale-105 transition-transform flex items-center justify-center shrink-0">
                 <img src="/logo.png" alt="Podachi Logo" className="w-full h-full object-cover" />
               </div>
-              <div className="min-w-0">
+              <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 dark:text-white group-hover:text-forest-700 dark:group-hover:text-forest-400 transition-colors">
                     PODACHI
@@ -161,7 +161,7 @@ export const Navbar: React.FC = () => {
                     PRO
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium -mt-0.5 hidden sm:block truncate">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium -mt-0.5 hidden sm:block whitespace-nowrap">
                   Chorvachilik Boshqaruv & Bozor Platformasi
                 </p>
               </div>

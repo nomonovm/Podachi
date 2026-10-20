@@ -239,50 +239,24 @@ export const Auth: React.FC = () => {
               </div>
 
               {/* Rate Limit Security Status */}
-              {rateLimitStatus.isLocked ? (
-                <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 space-y-2.5 shadow-xs">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-rose-700 dark:text-rose-400">
-                      <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-                      <span>Qurilma 30 daqiqaga bloklangan</span>
-                    </div>
-                    <span className="text-[11px] font-mono font-bold bg-rose-100 dark:bg-rose-900/60 px-2.5 py-0.5 rounded-full border border-rose-300 dark:border-rose-700 text-rose-800 dark:text-rose-200 shrink-0">
-                      {rateLimitStatus.remainingMinutes} daq qoldi
-                    </span>
+              {rateLimitStatus.isLocked && (
+                <div className="p-3.5 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
+                    <span>Juda ko'p muvaffaqiyatsiz urinishlar qayd etildi. Iltimos, keyinroq urinib ko'ring.</span>
                   </div>
-                  <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed">
-                    Ushbu qurilma (IP: <strong className="font-mono text-slate-900 dark:text-white">{rateLimitStatus.ip}</strong>) dan ketma-ket 5 marta xato urinish qayd etilganligi sababli brute-force va dictionary hujumlaridan himoyalanish maqsadida 30 daqiqaga bloklandi.
-                  </p>
-                  <div className="text-[11px] bg-white/90 dark:bg-slate-950/70 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <span className="text-slate-600 dark:text-slate-400">
-                      🔒 Foydalanuvchi hisobingiz bloklanmagan — boshqa qurilma yoki tarmoqdan bemalol kirishingiz mumkin.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleResetIpLock}
-                      className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline shrink-0"
-                      title="Sinov va taqdimot paytida darhol blokdan chiqarish"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Sinov uchun yechish</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetIpLock}
+                    className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline shrink-0"
+                    title="Sinov uchun"
+                  >
+                    Tiklash
+                  </button>
                 </div>
-              ) : rateLimitStatus.failedAttempts > 0 ? (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>
-                      Xavfsizlik ogohlantirishi: Qurilma xato urinishlari: <strong>{rateLimitStatus.failedAttempts}/5</strong> ta
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
-                    IP: {rateLimitStatus.ip}
-                  </span>
-                </div>
-              ) : null}
+              )}
 
-              {loginError && (
+              {!rateLimitStatus.isLocked && loginError && (
                 <div className="p-3.5 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2.5">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
                   <span>{loginError}</span>
@@ -567,13 +541,8 @@ export const Auth: React.FC = () => {
       </main>
 
       {/* Footer in Auth Screen */}
-      <footer className="relative z-10 max-w-7xl w-full mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
+      <footer className="relative z-10 max-w-7xl w-full mx-auto px-6 py-4 text-center text-xs text-slate-500 dark:text-slate-400">
         <p>© 2026 PODACHI. Barcha huquqlar himoyalangan.</p>
-        <div className="flex items-center gap-2 font-mono text-[11px] bg-slate-200/60 dark:bg-slate-900/60 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-800">
-          <Globe className="w-3.5 h-3.5 text-forest-600 dark:text-forest-400" />
-          <span>Qurilma IP: {rateLimitStatus.ip}</span>
-          <span className={`w-2 h-2 rounded-full inline-block ${rateLimitStatus.isLocked ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`} />
-        </div>
       </footer>
 
     </div>

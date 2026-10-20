@@ -576,7 +576,7 @@ export class PodachiBackendEngine {
         ip_address: ip,
       });
       throw new Error(
-        `Xavfsizlik blokirovkasi: Ushbu qurilma (IP: ${ip}) dan ketma-ket 5 marta xato urinish qayd etilganligi sababli, brute-force va dictionary hujumlaridan himoya maqsadida 30 daqiqaga bloklangan! Qolgan vaqt: ${ipStatus.remainingMinutes} daqiqa.`
+        "Juda ko'p muvaffaqiyatsiz urinishlar qayd etildi. Iltimos, keyinroq urinib ko'ring."
       );
     }
 
@@ -614,11 +614,10 @@ export class PodachiBackendEngine {
           ip_address: ip,
         });
         throw new Error(
-          `Xavfsizlik ogohlantirishi: Ketma-ket 5 marta xato urinish qayd etildi! Ushbu qurilma (IP: ${ip}) brute-force va dictionary hujumlaridan himoyalanish maqsadida 30 daqiqaga bloklandi. Qolgan vaqt: 30 daqiqa.`
+          "Juda ko'p muvaffaqiyatsiz urinishlar qayd etildi. Iltimos, keyinroq urinib ko'ring."
         );
       }
 
-      const remaining = PodachiBackendEngine.MAX_FAILED_ATTEMPTS - attemptResult.failedAttempts;
       const baseError = !user
         ? "Ushbu email bilan ro'yxatdan o'tgan foydalanuvchi topilmadi."
         : "Parol noto'g'ri kiritildi. Iltimos, tekshirib qayta kiriting.";
@@ -632,9 +631,7 @@ export class PodachiBackendEngine {
         ip_address: ip,
       });
 
-      throw new Error(
-        `${baseError} (Diqqat: Qurilma IP xato urinishlari ${attemptResult.failedAttempts}/5. Yana ${remaining} ta xatodan so'ng ushbu qurilma 30 daqiqaga bloklanadi!)`
-      );
+      throw new Error(baseError);
     }
 
     // Muvaffaqiyatli kirish bo'lganda ushbu IP uchun xato urinishlar hisoblagichini tozalash

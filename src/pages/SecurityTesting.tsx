@@ -408,8 +408,8 @@ export const SecurityTesting: React.FC = () => {
       try {
         backendEngine.login('admin@podachi.uz', 'wrong_pass_5', false, testIp);
       } catch (e: any) {
-        blockedOn5 = e.message.includes('bloklandi') || e.message.includes('bloklangan');
-        logs.push(`[ATTEMPT 5/5] 5-urinish xato -> IP 30 daqiqaga bloklandi!`);
+        blockedOn5 = e.message.includes('keyinroq') || e.message.includes('Juda ko\'p');
+        logs.push(`[ATTEMPT 5/5] 5-urinish xato -> IP 30 daqiqaga bloklandi: "${e.message}"`);
       }
 
       const statusAfter5 = backendEngine.getIpRateLimitStatus(testIp);
@@ -420,8 +420,8 @@ export const SecurityTesting: React.FC = () => {
       try {
         backendEngine.login('admin@podachi.uz', 'podachi2026', false, testIp);
       } catch (e: any) {
-        attempt6Blocked = e.message.includes('bloklangan');
-        logs.push(`[ATTEMPT 6 (Blocked IP)] To'g'ri parol bilan ham so'rov to'xtatildi (30 daqiqalik lockout faol)`);
+        attempt6Blocked = e.message.includes('keyinroq') || e.message.includes('Juda ko\'p');
+        logs.push(`[ATTEMPT 6 (Blocked IP)] To'g'ri parol bilan ham so'rov to'xtatildi -> "${e.message}"`);
       }
 
       // Verify that account is NOT locked from another IP

@@ -24,41 +24,47 @@ export const BottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-[#0A1310]/95 backdrop-blur-md border-t border-slate-200/80 dark:border-forest-900/50 shadow-lg px-2 py-1 flex items-center justify-around transition-colors">
-      {navItems.map(item => {
-        const Icon = item.icon;
-        const isActive = activeTab === item.id;
-        return (
-          <button
-            key={item.id}
-            onClick={() => {
-              setActiveTab(item.id);
-              setIsMobileMenuOpen(false);
-            }}
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
-              isActive
-                ? 'text-forest-800 dark:text-emerald-400 font-extrabold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'
-            }`}
-          >
-            <Icon className={`w-5 h-5 ${isActive ? 'scale-110 text-forest-800 dark:text-emerald-400' : ''}`} />
-            <span className="text-[10px] mt-0.5">{item.label}</span>
-          </button>
-        );
-      })}
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-[#0A1310]/95 backdrop-blur-md border-t border-slate-200/80 dark:border-forest-900/50 shadow-lg px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)] transition-colors">
+      <div className="grid grid-cols-5 w-full max-w-md mx-auto items-center">
+        {navItems.map(item => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id);
+                setIsMobileMenuOpen(false);
+              }}
+              className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all w-full text-center ${
+                isActive
+                  ? 'text-forest-800 dark:text-emerald-400 font-extrabold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'
+              }`}
+            >
+              <Icon className={`w-5 h-5 ${isActive ? 'scale-110 text-forest-800 dark:text-emerald-400' : ''}`} />
+              <span className="text-[10px] mt-0.5 tracking-tight leading-tight text-center truncate max-w-full">
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
 
-      {/* Menu / Drawer Toggle */}
-      <button
-        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
-          isMobileMenuOpen
-            ? 'text-forest-800 dark:text-emerald-400 font-extrabold'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'
-        }`}
-      >
-        <Menu className="w-5 h-5" />
-        <span className="text-[10px] mt-0.5">Menyu</span>
-      </button>
+        {/* Menu / Drawer Toggle */}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all w-full text-center ${
+            isMobileMenuOpen
+              ? 'text-forest-800 dark:text-emerald-400 font-extrabold'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'
+          }`}
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px] mt-0.5 tracking-tight leading-tight text-center truncate max-w-full">
+            Menyu
+          </span>
+        </button>
+      </div>
     </nav>
   );
 };

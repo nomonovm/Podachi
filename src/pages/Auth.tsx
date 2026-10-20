@@ -48,13 +48,6 @@ export const Auth: React.FC = () => {
     return () => clearInterval(interval);
   }, [rateLimitStatus.isLocked]);
 
-  const handleResetIpLock = () => {
-    backendEngine.clearIpRateLimit();
-    refreshRateLimit();
-    setLoginError(null);
-    showToast("Qurilma IP blokirovkasi tozalandi (Sinov rejimi).", "info");
-  };
-
   // Register form states
   const [regFullName, setRegFullName] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -240,19 +233,9 @@ export const Auth: React.FC = () => {
 
               {/* Rate Limit Security Status */}
               {rateLimitStatus.isLocked && (
-                <div className="p-3.5 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
-                    <span>Juda ko'p muvaffaqiyatsiz urinishlar qayd etildi. Iltimos, keyinroq urinib ko'ring.</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleResetIpLock}
-                    className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline shrink-0"
-                    title="Sinov uchun"
-                  >
-                    Tiklash
-                  </button>
+                <div className="p-3.5 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
+                  <span>Juda ko'p muvaffaqiyatsiz urinishlar qayd etildi. Iltimos, keyinroq urinib ko'ring.</span>
                 </div>
               )}
 
@@ -323,8 +306,8 @@ export const Auth: React.FC = () => {
                   disabled={isSubmitting || rateLimitStatus.isLocked}
                   className="w-full py-3 bg-gradient-to-r from-forest-700 to-forest-800 hover:from-forest-600 hover:to-forest-700 disabled:opacity-50 text-white rounded-xl text-sm font-extrabold transition shadow-lg shadow-forest-900/50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <span>{rateLimitStatus.isLocked ? `Qurilma bloklangan (${rateLimitStatus.remainingMinutes} daq)` : 'Tizimga Kirish'}</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{rateLimitStatus.isLocked ? 'Keyinroq urining' : 'Tizimga Kirish'}</span>
+                  {!rateLimitStatus.isLocked && <ArrowRight className="w-4 h-4" />}
                 </button>
               </form>
 

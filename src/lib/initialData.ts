@@ -20,6 +20,7 @@ export const INITIAL_USERS: UserProfile[] = [
     email: 'admin@podachi.uz',
     full_name: 'Alisher Qodirov (Ferma Rahbari)',
     phone: '+998 90 123 45 67',
+    password: 'podachi2026',
     created_at: '2026-01-10T08:00:00Z',
   },
   {
@@ -27,6 +28,7 @@ export const INITIAL_USERS: UserProfile[] = [
     email: 'manager@podachi.uz',
     full_name: 'Bobur Rustamov (Bosh Menejer)',
     phone: '+998 91 234 56 78',
+    password: 'podachi2026',
     created_at: '2026-01-12T09:00:00Z',
   },
   {
@@ -34,6 +36,7 @@ export const INITIAL_USERS: UserProfile[] = [
     email: 'vet@podachi.uz',
     full_name: 'Dr. Jamshid Zokirov (Bosh Veterinar)',
     phone: '+998 93 345 67 89',
+    password: 'podachi2026',
     created_at: '2026-01-15T10:00:00Z',
   },
   {
@@ -41,6 +44,7 @@ export const INITIAL_USERS: UserProfile[] = [
     email: 'viewer@podachi.uz',
     full_name: 'Dilshod Karimov (Auditor / Kuzatuvchi)',
     phone: '+998 94 456 78 90',
+    password: 'podachi2026',
     created_at: '2026-01-20T11:00:00Z',
   },
   {
@@ -48,6 +52,7 @@ export const INITIAL_USERS: UserProfile[] = [
     email: 'solih@vodiy.uz',
     full_name: 'Solih Mirzaev (Vodiy Agro)',
     phone: '+998 97 789 01 23',
+    password: 'podachi2026',
     created_at: '2026-02-01T12:00:00Z',
   }
 ];

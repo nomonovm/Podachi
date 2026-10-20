@@ -89,9 +89,9 @@ export const Auth: React.FC = () => {
     setLoginError(null);
     setIsSubmitting(true);
 
-    const success = await login(loginEmail, loginPassword, rememberMe);
-    if (!success) {
-      setLoginError("Email yoki parol noto'g'ri kiritildi. Iltimos, qayta urinib ko'ring.");
+    const res = await login(loginEmail, loginPassword, rememberMe);
+    if (!res.success) {
+      setLoginError(res.error || "Email yoki parol noto'g'ri kiritildi. Iltimos, qayta urinib ko'ring.");
     }
     setIsSubmitting(false);
   };
@@ -114,7 +114,7 @@ export const Auth: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const success = await register({
+    const res = await register({
       full_name: regFullName,
       email: regEmail,
       password: regPassword,
@@ -124,8 +124,8 @@ export const Auth: React.FC = () => {
       location: regLocation,
     }, rememberMe);
 
-    if (!success) {
-      setRegError("Ro'yxatdan o'tishda xatolik yuz berdi. Ma'lumotlarni tekshiring.");
+    if (!res.success) {
+      setRegError(res.error || "Ro'yxatdan o'tishda xatolik yuz berdi. Ma'lumotlarni tekshiring.");
     }
     setIsSubmitting(false);
   };

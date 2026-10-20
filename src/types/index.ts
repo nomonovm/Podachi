@@ -9,6 +9,7 @@ export interface UserProfile {
   avatar_url?: string;
   phone?: string;
   created_at: string;
+  password?: string;
 }
 
 export interface RegisterData {

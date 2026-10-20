@@ -340,6 +340,16 @@ export function loadState(): PodachiState {
       }
     }
 
+    // Ensure all users have a valid password
+    if (Array.isArray(parsed.users)) {
+      parsed.users.forEach((u: UserProfile) => {
+        if (!u.password) {
+          u.password = 'podachi2026';
+          stateWasRepaired = true;
+        }
+      });
+    }
+
     if (stateWasRepaired) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
@@ -425,6 +435,17 @@ export class PodachiBackendEngine {
       throw new Error("Ushbu email bilan ro'yxatdan o'tgan foydalanuvchi topilmadi.");
     }
 
+    const expectedPassword = user.password || 'podachi2026';
+    if (password !== expectedPassword) {
+      this.logAudit({
+        action_type: 'AUTH_FAILED',
+        result: 'FAILED',
+        resource_name: 'auth',
+        details: `Muvaffaqiyatsiz login urinishi: ${email} (Parol noto'g'ri)`,
+      });
+      throw new Error("Kiritilgan parol noto'g'ri. Iltimos, tekshirib qayta kiriting.");
+    }
+
     this.state.currentUser = user;
     this.state.isAuthenticated = true;
 
@@ -480,6 +501,7 @@ export class PodachiBackendEngine {
       email: cleanEmail,
       full_name: data.full_name.trim(),
       created_at: new Date().toISOString(),
+      password: data.password,
     };
 
     this.state.users.push(newUser);

@@ -581,9 +581,11 @@ export class PodachiBackendEngine {
     }
 
     if (!email || !email.trim()) {
-      throw new Error("Email manzilini kiritish majburiy.");
+      throw new Error("Login yoki parol noto'g'ri.");
     }
     if (!password || password.length < 6) {
+      const clean = email.trim().toLowerCase();
+      this.recordFailedIpAttempt(ip, clean, 'Parol 6 belgidan kam');
       this.logAudit({
         action_type: 'AUTH_FAILED',
         result: 'FAILED',
@@ -592,7 +594,7 @@ export class PodachiBackendEngine {
         ip_address: ip,
         user_email: email,
       });
-      throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
+      throw new Error("Login yoki parol noto'g'ri.");
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -618,9 +620,7 @@ export class PodachiBackendEngine {
         );
       }
 
-      const baseError = !user
-        ? "Ushbu email bilan ro'yxatdan o'tgan foydalanuvchi topilmadi."
-        : "Parol noto'g'ri kiritildi. Iltimos, tekshirib qayta kiriting.";
+      const baseError = "Login yoki parol noto'g'ri.";
 
       this.logAudit({
         action_type: 'AUTH_FAILED',

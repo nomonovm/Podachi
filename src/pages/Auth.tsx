@@ -116,7 +116,7 @@ export const Auth: React.FC = () => {
     const res = await login(loginEmail, loginPassword, rememberMe);
     refreshRateLimit();
     if (!res.success) {
-      setLoginError(res.error || "Email yoki parol noto'g'ri kiritildi. Iltimos, qayta urinib ko'ring.");
+      setLoginError(res.error || "Login yoki parol noto'g'ri.");
     }
     setIsSubmitting(false);
   };

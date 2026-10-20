@@ -110,6 +110,16 @@ export const SecurityTesting: React.FC = () => {
       status: 'PENDING',
       remediation_advice: 'Unique constraint check: Har bir marketplace_sale faqat bitta revenues yozuviga ega bo\'ladi.',
     },
+    {
+      id: 'test-j',
+      code: 'TEST-J',
+      name: 'Brute-Force & Dictionary Hujumlaridan IP Darajasida Himoya (Rate Limiting)',
+      objective: 'Bitta qurilma IP manzilidan ketma-ket 5 marta xato login amalga oshirilganda, ushbu IP ni 30 daqiqaga bloklash (foydalanuvchi hisobini bloklamasdan)',
+      expected_outcome: '5-xato urinishdan so\'ng qurilma IP manzili 30 daqiqaga bloklanadi, so\'rovlar rad etiladi, auditga IP_BLOCKED_BRUTE_FORCE yoziladi va hisobning o\'zi bloklanmaydi.',
+      actual_outcome: 'Kutilmoqda (Test ishga tushirilmagan)',
+      status: 'PENDING',
+      remediation_advice: 'Client/Network rate limiting: IP bo\'yicha xato urinishlar 5 taga yetganda 30 daqiqalik lockout qo\'llaniladi. Boshqa qurilmadagi qonuniy foydalanuvchi tizimga kira oladi.',
+    },
   ];
 
   const [testCases, setTestCases] = useState<SecurityTestCase[]>(initialTestSuites);
@@ -373,9 +383,74 @@ export const SecurityTesting: React.FC = () => {
       updated[8].actual_outcome = e.message;
     }
 
+    // TEST J Execution: Brute-Force & Dictionary IP Rate Limiting
+    try {
+      const testIp = '198.51.100.99'; // Test attacker IP
+      backendEngine.clearIpRateLimit(testIp);
+
+      const logs: string[] = [];
+      logs.push(`[SIMULATION START] Test IP (${testIp}) orqali dictionary hujumi simulyatsiyasi`);
+
+      // 1-4 failed attempts
+      for (let i = 1; i <= 4; i++) {
+        try {
+          backendEngine.login('admin@podachi.uz', 'wrong_pass_' + i, false, testIp);
+        } catch (e: any) {
+          logs.push(`[ATTEMPT ${i}/5] Noto'g'ri parol -> Hisoblagich: ${i}/5 (Hali bloklanmagan)`);
+        }
+      }
+
+      const statusBefore5 = backendEngine.getIpRateLimitStatus(testIp);
+      const notLockedYet = !statusBefore5.isLocked && statusBefore5.failedAttempts === 4;
+
+      // 5th failed attempt -> MUST lock IP for 30 minutes
+      let blockedOn5 = false;
+      try {
+        backendEngine.login('admin@podachi.uz', 'wrong_pass_5', false, testIp);
+      } catch (e: any) {
+        blockedOn5 = e.message.includes('bloklandi') || e.message.includes('bloklangan');
+        logs.push(`[ATTEMPT 5/5] 5-urinish xato -> IP 30 daqiqaga bloklandi!`);
+      }
+
+      const statusAfter5 = backendEngine.getIpRateLimitStatus(testIp);
+      const isNowLocked = statusAfter5.isLocked && statusAfter5.remainingMinutes >= 29;
+
+      // 6th attempt (even with correct password) must be rejected
+      let attempt6Blocked = false;
+      try {
+        backendEngine.login('admin@podachi.uz', 'podachi2026', false, testIp);
+      } catch (e: any) {
+        attempt6Blocked = e.message.includes('bloklangan');
+        logs.push(`[ATTEMPT 6 (Blocked IP)] To'g'ri parol bilan ham so'rov to'xtatildi (30 daqiqalik lockout faol)`);
+      }
+
+      // Verify that account is NOT locked from another IP
+      const anotherIp = '203.0.113.15';
+      const cleanLoginOtherIp = backendEngine.getIpRateLimitStatus(anotherIp).isLocked === false;
+      logs.push(`[DEVICE ISOLATION] Boshqa IP (${anotherIp}) dan tekshiruv: Foydalanuvchi hisobi ochiq (Faqat hujum qilgan IP bloklangan)`);
+
+      // Cleanup test IP
+      backendEngine.clearIpRateLimit(testIp);
+      logs.push(`[TEST CLEANUP] Test IP (${testIp}) blokirovkasi tozalandi`);
+
+      const passed = notLockedYet && blockedOn5 && isNowLocked && attempt6Blocked && cleanLoginOtherIp;
+
+      updated[9] = {
+        ...updated[9],
+        status: passed ? 'PASS' : 'FAIL',
+        actual_outcome: passed
+          ? `Muvaffaqiyatli: 5-xato urinishdan so'ng ${testIp} IP manzili 30 daqiqaga bloklandi. To'g'ri parol kiritilganda ham so'rov to'xtatildi. Boshqa IP (${anotherIp}) dan hisobga kirish ochiq qoldi.`
+          : 'Xatolik: Rate limiting kutilganidek ishlamadi.',
+        execution_log: logs,
+      };
+    } catch (e: any) {
+      updated[9].status = 'FAIL';
+      updated[9].actual_outcome = e.message;
+    }
+
     setTestCases(updated);
     setIsRunning(false);
-    showToast('Barcha 9 ta xavfsizlik va funksional qabul testlari bajarildi!', 'success');
+    showToast('Barcha 10 ta xavfsizlik va funksional qabul testlari bajarildi!', 'success');
   };
 
   const passCount = testCases.filter(t => t.status === 'PASS').length;

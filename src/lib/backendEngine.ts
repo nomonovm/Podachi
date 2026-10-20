@@ -404,11 +404,182 @@ export class PodachiBackendEngine {
       localStorage.removeItem('podachi_remember_me');
       sessionStorage.removeItem('podachi_session_auth');
     }
+    this.resetAllIpRateLimits();
     this.notify();
   }
 
+  // --- IP Rate Limiting & Brute-Force / Dictionary Protection ---
+  private static readonly RATE_LIMIT_STORAGE_KEY = 'podachi_ip_rate_limits';
+  public static readonly MAX_FAILED_ATTEMPTS = 5;
+  public static readonly LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 daqiqa
+
+  public getClientIp(): string {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      let ip = localStorage.getItem('podachi_client_ip');
+      if (!ip) {
+        ip = '195.158.30.42';
+        localStorage.setItem('podachi_client_ip', ip);
+      }
+      return ip;
+    }
+    return '195.158.30.42';
+  }
+
+  public setClientIp(ip: string): void {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.setItem('podachi_client_ip', ip.trim());
+      this.notify();
+    }
+  }
+
+  private loadRateLimits(): Record<string, { failedAttempts: number; lockedUntil: number | null; lastAttemptAt: string }> {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return {};
+    }
+    try {
+      const raw = localStorage.getItem(PodachiBackendEngine.RATE_LIMIT_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private saveRateLimits(limits: Record<string, { failedAttempts: number; lockedUntil: number | null; lastAttemptAt: string }>): void {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(PodachiBackendEngine.RATE_LIMIT_STORAGE_KEY, JSON.stringify(limits));
+    } catch (e) {
+      console.error('Failed to save rate limits', e);
+    }
+  }
+
+  public getIpRateLimitStatus(ipAddress?: string): {
+    ip: string;
+    isLocked: boolean;
+    remainingMinutes: number;
+    remainingSeconds: number;
+    failedAttempts: number;
+    maxAttempts: number;
+    lockedUntil: number | null;
+  } {
+    const ip = ipAddress || this.getClientIp();
+    const limits = this.loadRateLimits();
+    const record = limits[ip];
+    const now = Date.now();
+
+    if (!record) {
+      return {
+        ip,
+        isLocked: false,
+        remainingMinutes: 0,
+        remainingSeconds: 0,
+        failedAttempts: 0,
+        maxAttempts: PodachiBackendEngine.MAX_FAILED_ATTEMPTS,
+        lockedUntil: null,
+      };
+    }
+
+    if (record.lockedUntil && now < record.lockedUntil) {
+      const diffMs = record.lockedUntil - now;
+      return {
+        ip,
+        isLocked: true,
+        remainingMinutes: Math.max(1, Math.ceil(diffMs / 60000)),
+        remainingSeconds: Math.ceil(diffMs / 1000),
+        failedAttempts: record.failedAttempts,
+        maxAttempts: PodachiBackendEngine.MAX_FAILED_ATTEMPTS,
+        lockedUntil: record.lockedUntil,
+      };
+    }
+
+    if (record.lockedUntil && now >= record.lockedUntil) {
+      delete limits[ip];
+      this.saveRateLimits(limits);
+    }
+
+    return {
+      ip,
+      isLocked: false,
+      remainingMinutes: 0,
+      remainingSeconds: 0,
+      failedAttempts: record.failedAttempts || 0,
+      maxAttempts: PodachiBackendEngine.MAX_FAILED_ATTEMPTS,
+      lockedUntil: null,
+    };
+  }
+
+  public recordFailedIpAttempt(ipAddress?: string, attemptedEmail?: string, reason?: string): {
+    failedAttempts: number;
+    isLocked: boolean;
+    remainingMinutes: number;
+  } {
+    const ip = ipAddress || this.getClientIp();
+    const limits = this.loadRateLimits();
+    const record = limits[ip] || { failedAttempts: 0, lockedUntil: null, lastAttemptAt: new Date().toISOString() };
+    const now = Date.now();
+
+    if (record.lockedUntil && now >= record.lockedUntil) {
+      record.failedAttempts = 0;
+      record.lockedUntil = null;
+    }
+
+    record.failedAttempts = (record.failedAttempts || 0) + 1;
+    record.lastAttemptAt = new Date().toISOString();
+
+    let isLocked = false;
+    let remainingMinutes = 0;
+
+    if (record.failedAttempts >= PodachiBackendEngine.MAX_FAILED_ATTEMPTS) {
+      record.lockedUntil = now + PodachiBackendEngine.LOCKOUT_DURATION_MS;
+      isLocked = true;
+      remainingMinutes = 30;
+    }
+
+    limits[ip] = record;
+    this.saveRateLimits(limits);
+
+    return {
+      failedAttempts: record.failedAttempts,
+      isLocked,
+      remainingMinutes,
+    };
+  }
+
+  public clearIpRateLimit(ipAddress?: string): void {
+    const ip = ipAddress || this.getClientIp();
+    const limits = this.loadRateLimits();
+    if (limits[ip]) {
+      delete limits[ip];
+      this.saveRateLimits(limits);
+    }
+  }
+
+  public resetAllIpRateLimits(): void {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.removeItem(PodachiBackendEngine.RATE_LIMIT_STORAGE_KEY);
+    }
+  }
+
   // --- Auth & User context ---
-  public login(email: string, password: string, rememberMe: boolean = false): UserProfile {
+  public login(email: string, password: string, rememberMe: boolean = false, clientIp?: string): UserProfile {
+    const ip = clientIp || this.getClientIp();
+    const ipStatus = this.getIpRateLimitStatus(ip);
+
+    // 1. IP Lockout tekshiruvi (Brute-force / Dictionary himoyasi)
+    if (ipStatus.isLocked) {
+      this.logAudit({
+        action_type: 'AUTH_RATE_LIMIT_BLOCKED',
+        result: 'BLOCKED',
+        resource_name: 'auth',
+        details: `Bloklangan qurilma IP (${ip}) dan kirish so'rovi to'xtatildi. Qolgan vaqt: ${ipStatus.remainingMinutes} daqiqa (Brute-force / Dictionary himoyasi)`,
+        user_email: email,
+        ip_address: ip,
+      });
+      throw new Error(
+        `Xavfsizlik blokirovkasi: Ushbu qurilma (IP: ${ip}) dan ketma-ket 5 marta xato urinish qayd etilganligi sababli, brute-force va dictionary hujumlaridan himoya maqsadida 30 daqiqaga bloklangan! Qolgan vaqt: ${ipStatus.remainingMinutes} daqiqa.`
+      );
+    }
+
     if (!email || !email.trim()) {
       throw new Error("Email manzilini kiritish majburiy.");
     }
@@ -418,33 +589,56 @@ export class PodachiBackendEngine {
         result: 'FAILED',
         resource_name: 'auth',
         details: `Muvaffaqiyatsiz login urinishi: ${email} (Parol talabga javob bermaydi)`,
+        ip_address: ip,
+        user_email: email,
       });
       throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
     }
 
     const cleanEmail = email.trim().toLowerCase();
     const user = this.state.users.find(u => u.email.toLowerCase() === cleanEmail);
+    const expectedPassword = user?.password || 'podachi2026';
+    const isPasswordCorrect = Boolean(user && user.password ? user.password === password : password === expectedPassword);
 
-    if (!user) {
+    // 2. Agar foydalanuvchi topilmasa yoki parol xato bo'lsa -> Ushbu IP uchun xato urinish qayd etiladi
+    if (!user || !isPasswordCorrect) {
+      const attemptResult = this.recordFailedIpAttempt(ip, cleanEmail, !user ? 'User not found' : 'Invalid password');
+
+      if (attemptResult.isLocked) {
+        this.logAudit({
+          action_type: 'IP_BLOCKED_BRUTE_FORCE',
+          result: 'BLOCKED',
+          resource_name: 'auth',
+          details: `Qurilma IP manzili (${ip}) ketma-ket 5 marta xato urinishdan so'ng 30 daqiqaga bloklandi (Brute-force / Dictionary himoyasi)`,
+          user_email: cleanEmail,
+          ip_address: ip,
+        });
+        throw new Error(
+          `Xavfsizlik ogohlantirishi: Ketma-ket 5 marta xato urinish qayd etildi! Ushbu qurilma (IP: ${ip}) brute-force va dictionary hujumlaridan himoyalanish maqsadida 30 daqiqaga bloklandi. Qolgan vaqt: 30 daqiqa.`
+        );
+      }
+
+      const remaining = PodachiBackendEngine.MAX_FAILED_ATTEMPTS - attemptResult.failedAttempts;
+      const baseError = !user
+        ? "Ushbu email bilan ro'yxatdan o'tgan foydalanuvchi topilmadi."
+        : "Parol noto'g'ri kiritildi. Iltimos, tekshirib qayta kiriting.";
+
       this.logAudit({
         action_type: 'AUTH_FAILED',
         result: 'FAILED',
         resource_name: 'auth',
-        details: `Muvaffaqiyatsiz login urinishi: ${email} (Foydalanuvchi topilmadi)`,
+        details: `Muvaffaqiyatsiz login urinishi: ${cleanEmail} (${!user ? 'Foydalanuvchi topilmadi' : 'Parol noto\'g\'ri'}) - IP: ${ip} (Xato urinish: ${attemptResult.failedAttempts}/5)`,
+        user_email: cleanEmail,
+        ip_address: ip,
       });
-      throw new Error("Ushbu email bilan ro'yxatdan o'tgan foydalanuvchi topilmadi.");
+
+      throw new Error(
+        `${baseError} (Diqqat: Qurilma IP xato urinishlari ${attemptResult.failedAttempts}/5. Yana ${remaining} ta xatodan so'ng ushbu qurilma 30 daqiqaga bloklanadi!)`
+      );
     }
 
-    const expectedPassword = user.password || 'podachi2026';
-    if (password !== expectedPassword) {
-      this.logAudit({
-        action_type: 'AUTH_FAILED',
-        result: 'FAILED',
-        resource_name: 'auth',
-        details: `Muvaffaqiyatsiz login urinishi: ${email} (Parol noto'g'ri)`,
-      });
-      throw new Error("Kiritilgan parol noto'g'ri. Iltimos, tekshirib qayta kiriting.");
-    }
+    // Muvaffaqiyatli kirish bo'lganda ushbu IP uchun xato urinishlar hisoblagichini tozalash
+    this.clearIpRateLimit(ip);
 
     this.state.currentUser = user;
     this.state.isAuthenticated = true;
@@ -683,23 +877,24 @@ export class PodachiBackendEngine {
   public logAudit(entry: {
     farm_id?: string;
     action_type: AuditLog['action_type'];
-    result: 'SUCCESS' | 'DENIED' | 'FAILED';
+    result: AuditLog['result'];
     resource_name: string;
     details: string;
     user_email?: string;
     user_name?: string;
+    ip_address?: string;
   }): void {
     const newLog: AuditLog = {
       id: 'log-' + Math.random().toString(36).substring(2, 9),
       farm_id: entry.farm_id,
       timestamp: new Date().toISOString(),
-      user_email: entry.user_email || this.state.currentUser.email,
-      user_name: entry.user_name || this.state.currentUser.full_name,
+      user_email: entry.user_email || this.state.currentUser?.email || 'Noma\'lum',
+      user_name: entry.user_name || this.state.currentUser?.full_name || 'Noma\'lum',
       action_type: entry.action_type,
       result: entry.result,
       resource_name: entry.resource_name,
       details: entry.details,
-      ip_address: '127.0.0.1 (WebClient)',
+      ip_address: entry.ip_address || this.getClientIp(),
     };
     this.state.auditLogs = [newLog, ...this.state.auditLogs];
   }

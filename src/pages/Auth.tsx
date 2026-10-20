@@ -6,6 +6,9 @@ import {
   User,
   Building2,
   ShieldCheck,
+  ShieldAlert,
+  RotateCcw,
+  Globe,
   Eye,
   EyeOff,
   ArrowRight,
@@ -30,6 +33,27 @@ export const Auth: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rateLimitStatus, setRateLimitStatus] = useState(() => backendEngine.getIpRateLimitStatus());
+
+  const refreshRateLimit = () => {
+    setRateLimitStatus(backendEngine.getIpRateLimitStatus());
+  };
+
+  // Update countdown periodically when locked
+  React.useEffect(() => {
+    if (!rateLimitStatus.isLocked) return;
+    const interval = setInterval(() => {
+      refreshRateLimit();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [rateLimitStatus.isLocked]);
+
+  const handleResetIpLock = () => {
+    backendEngine.clearIpRateLimit();
+    refreshRateLimit();
+    setLoginError(null);
+    showToast("Qurilma IP blokirovkasi tozalandi (Sinov rejimi).", "info");
+  };
 
   // Register form states
   const [regFullName, setRegFullName] = useState('');
@@ -90,6 +114,7 @@ export const Auth: React.FC = () => {
     setIsSubmitting(true);
 
     const res = await login(loginEmail, loginPassword, rememberMe);
+    refreshRateLimit();
     if (!res.success) {
       setLoginError(res.error || "Email yoki parol noto'g'ri kiritildi. Iltimos, qayta urinib ko'ring.");
     }
@@ -213,6 +238,50 @@ export const Auth: React.FC = () => {
                 </p>
               </div>
 
+              {/* Rate Limit Security Status */}
+              {rateLimitStatus.isLocked ? (
+                <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 space-y-2.5 shadow-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-rose-700 dark:text-rose-400">
+                      <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                      <span>Qurilma 30 daqiqaga bloklangan</span>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold bg-rose-100 dark:bg-rose-900/60 px-2.5 py-0.5 rounded-full border border-rose-300 dark:border-rose-700 text-rose-800 dark:text-rose-200 shrink-0">
+                      {rateLimitStatus.remainingMinutes} daq qoldi
+                    </span>
+                  </div>
+                  <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed">
+                    Ushbu qurilma (IP: <strong className="font-mono text-slate-900 dark:text-white">{rateLimitStatus.ip}</strong>) dan ketma-ket 5 marta xato urinish qayd etilganligi sababli brute-force va dictionary hujumlaridan himoyalanish maqsadida 30 daqiqaga bloklandi.
+                  </p>
+                  <div className="text-[11px] bg-white/90 dark:bg-slate-950/70 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <span className="text-slate-600 dark:text-slate-400">
+                      🔒 Foydalanuvchi hisobingiz bloklanmagan — boshqa qurilma yoki tarmoqdan bemalol kirishingiz mumkin.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleResetIpLock}
+                      className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline shrink-0"
+                      title="Sinov va taqdimot paytida darhol blokdan chiqarish"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Sinov uchun yechish</span>
+                    </button>
+                  </div>
+                </div>
+              ) : rateLimitStatus.failedAttempts > 0 ? (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>
+                      Xavfsizlik ogohlantirishi: Qurilma xato urinishlari: <strong>{rateLimitStatus.failedAttempts}/5</strong> ta
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    IP: {rateLimitStatus.ip}
+                  </span>
+                </div>
+              ) : null}
+
               {loginError && (
                 <div className="p-3.5 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2.5">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
@@ -277,10 +346,10 @@ export const Auth: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-3 bg-gradient-to-r from-forest-700 to-forest-800 hover:from-forest-600 hover:to-forest-700 disabled:opacity-50 text-white rounded-xl text-sm font-extrabold transition shadow-lg shadow-forest-900/50 flex items-center justify-center gap-2"
+                  disabled={isSubmitting || rateLimitStatus.isLocked}
+                  className="w-full py-3 bg-gradient-to-r from-forest-700 to-forest-800 hover:from-forest-600 hover:to-forest-700 disabled:opacity-50 text-white rounded-xl text-sm font-extrabold transition shadow-lg shadow-forest-900/50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <span>Tizimga Kirish</span>
+                  <span>{rateLimitStatus.isLocked ? `Qurilma bloklangan (${rateLimitStatus.remainingMinutes} daq)` : 'Tizimga Kirish'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
@@ -498,8 +567,13 @@ export const Auth: React.FC = () => {
       </main>
 
       {/* Footer in Auth Screen */}
-      <footer className="relative z-10 max-w-7xl w-full mx-auto px-6 py-4 text-center text-xs text-slate-500 dark:text-slate-400">
+      <footer className="relative z-10 max-w-7xl w-full mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
         <p>© 2026 PODACHI. Barcha huquqlar himoyalangan.</p>
+        <div className="flex items-center gap-2 font-mono text-[11px] bg-slate-200/60 dark:bg-slate-900/60 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-800">
+          <Globe className="w-3.5 h-3.5 text-forest-600 dark:text-forest-400" />
+          <span>Qurilma IP: {rateLimitStatus.ip}</span>
+          <span className={`w-2 h-2 rounded-full inline-block ${rateLimitStatus.isLocked ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`} />
+        </div>
       </footer>
 
     </div>

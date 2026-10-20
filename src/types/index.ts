@@ -339,6 +339,8 @@ export type AuditActionType =
   | 'HEALTH_RECORD'
   | 'SECURITY_UNAUTHORIZED_ACCESS_ATTEMPT'
   | 'SECURITY_OVER_RESERVATION_ATTEMPT'
+  | 'AUTH_RATE_LIMIT_BLOCKED'
+  | 'IP_BLOCKED_BRUTE_FORCE'
   | 'SETTINGS_CHANGE'
   | 'PAYROLL_UPDATE'
   | 'PAYROLL_DISBURSED'
@@ -351,7 +353,7 @@ export interface AuditLog {
   user_email: string;
   user_name: string;
   action_type: AuditActionType;
-  result: 'SUCCESS' | 'DENIED' | 'FAILED';
+  result: 'SUCCESS' | 'DENIED' | 'FAILED' | 'BLOCKED';
   resource_name: string;
   details: string;
   ip_address?: string;

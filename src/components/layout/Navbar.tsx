@@ -71,7 +71,7 @@ export const Navbar: React.FC = () => {
         <>
           <div
             onClick={() => setFarmMenuOpen(false)}
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-2xs"
+            className="fixed inset-0 z-40"
             aria-hidden="true"
           />
           <div className="fixed inset-x-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-2 z-50">
@@ -238,7 +238,7 @@ export const Navbar: React.FC = () => {
                 <>
                   <div
                     onClick={() => setUserMenuOpen(false)}
-                    className="fixed inset-0 z-40 bg-black/40 backdrop-blur-2xs"
+                    className="fixed inset-0 z-40"
                     aria-hidden="true"
                   />
                   <div className="fixed inset-x-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-2 z-50 max-h-[80vh] flex flex-col">

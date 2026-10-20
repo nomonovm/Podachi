@@ -41,8 +41,8 @@ interface AppContextType {
   setActiveTab: (tab: NavigationTab) => void;
   setCurrentUser: (user: UserProfile) => void;
   setCurrentFarm: (farmId: string) => void;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (data: RegisterData) => Promise<boolean>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
+  register: (data: RegisterData, rememberMe?: boolean) => Promise<boolean>;
   logout: () => void;
   toggleDarkMode: () => void;
   toasts: ToastMessage[];
@@ -96,9 +96,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  const handleLogin = async (email: string, password: string): Promise<boolean> => {
+  const handleLogin = async (email: string, password: string, rememberMe: boolean = false): Promise<boolean> => {
     try {
-      const user = backendEngine.login(email, password);
+      const user = backendEngine.login(email, password, rememberMe);
       showToast(`Xush kelibsiz, ${user.full_name}!`, 'success');
       return true;
     } catch (e: any) {
@@ -107,9 +107,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const handleRegister = async (data: RegisterData): Promise<boolean> => {
+  const handleRegister = async (data: RegisterData, rememberMe: boolean = false): Promise<boolean> => {
     try {
-      const user = backendEngine.register(data);
+      const user = backendEngine.register(data, rememberMe);
       showToast(`Tabriklaymiz! Hisobingiz yaratildi, ${user.full_name}!`, 'success');
       return true;
     } catch (e: any) {

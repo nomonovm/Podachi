@@ -183,7 +183,7 @@ export function getInitialState(): PodachiState {
   return {
     users: INITIAL_USERS,
     currentUser: INITIAL_USERS[0], // Alisher Qodirov (Admin)
-    isAuthenticated: true,
+    isAuthenticated: false,
     isDarkMode: false,
     farms: INITIAL_FARMS,
     currentFarmId: INITIAL_FARMS[0].id,
@@ -220,6 +220,15 @@ export function loadState(): PodachiState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return getInitialState();
     const parsed = JSON.parse(raw);
+
+    const rememberMe = typeof window !== 'undefined' && localStorage.getItem('podachi_remember_me') === 'true';
+    const sessionAuth = typeof window !== 'undefined' && sessionStorage.getItem('podachi_session_auth') === 'true';
+
+    if (!rememberMe && !sessionAuth) {
+      parsed.isAuthenticated = false;
+    } else {
+      parsed.isAuthenticated = true;
+    }
 
     let stateWasRepaired = false;
 
@@ -381,11 +390,15 @@ export class PodachiBackendEngine {
 
   public resetToDefault(): void {
     this.state = getInitialState();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('podachi_remember_me');
+      sessionStorage.removeItem('podachi_session_auth');
+    }
     this.notify();
   }
 
   // --- Auth & User context ---
-  public login(email: string, password: string): UserProfile {
+  public login(email: string, password: string, rememberMe: boolean = false): UserProfile {
     if (!email || !email.trim()) {
       throw new Error("Email manzilini kiritish majburiy.");
     }
@@ -415,6 +428,16 @@ export class PodachiBackendEngine {
     this.state.currentUser = user;
     this.state.isAuthenticated = true;
 
+    if (typeof window !== 'undefined') {
+      if (rememberMe) {
+        localStorage.setItem('podachi_remember_me', 'true');
+        sessionStorage.removeItem('podachi_session_auth');
+      } else {
+        localStorage.removeItem('podachi_remember_me');
+        sessionStorage.setItem('podachi_session_auth', 'true');
+      }
+    }
+
     // Auto-select farm if member
     const membership = this.state.farmMembers.find(m => m.user_id === user.id && m.status === 'active');
     if (membership) {
@@ -435,7 +458,7 @@ export class PodachiBackendEngine {
     return user;
   }
 
-  public register(data: RegisterData): UserProfile {
+  public register(data: RegisterData, rememberMe: boolean = false): UserProfile {
     if (!data.full_name || data.full_name.trim().length < 2) {
       throw new Error("Ism va familiyani to'liq kiriting.");
     }
@@ -462,6 +485,16 @@ export class PodachiBackendEngine {
     this.state.users.push(newUser);
     this.state.currentUser = newUser;
     this.state.isAuthenticated = true;
+
+    if (typeof window !== 'undefined') {
+      if (rememberMe) {
+        localStorage.setItem('podachi_remember_me', 'true');
+        sessionStorage.removeItem('podachi_session_auth');
+      } else {
+        localStorage.removeItem('podachi_remember_me');
+        sessionStorage.setItem('podachi_session_auth', 'true');
+      }
+    }
 
     // Process farm intent
     if (data.intent === 'create_farm') {
@@ -532,6 +565,10 @@ export class PodachiBackendEngine {
       details: `${user.full_name} tizimdan chiqdi`,
     });
     this.state.isAuthenticated = false;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('podachi_remember_me');
+      sessionStorage.removeItem('podachi_session_auth');
+    }
     this.notify();
   }
 

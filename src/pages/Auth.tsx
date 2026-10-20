@@ -27,6 +27,7 @@ export const Auth: React.FC = () => {
   // Login form states
   const [loginEmail, setLoginEmail] = useState('admin@podachi.uz');
   const [loginPassword, setLoginPassword] = useState('podachi2026');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,7 +89,7 @@ export const Auth: React.FC = () => {
     setLoginError(null);
     setIsSubmitting(true);
 
-    const success = await login(loginEmail, loginPassword);
+    const success = await login(loginEmail, loginPassword, rememberMe);
     if (!success) {
       setLoginError("Email yoki parol noto'g'ri kiritildi. Iltimos, qayta urinib ko'ring.");
     }
@@ -121,7 +122,7 @@ export const Auth: React.FC = () => {
       farm_name: regFarmName,
       farm_title: regFarmTitle || regFarmName,
       location: regLocation,
-    });
+    }, rememberMe);
 
     if (!success) {
       setRegError("Ro'yxatdan o'tishda xatolik yuz berdi. Ma'lumotlarni tekshiring.");
@@ -259,6 +260,19 @@ export const Auth: React.FC = () => {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                </div>
+
+                <div className="flex items-center justify-between py-0.5">
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-300 select-none hover:text-white transition">
+                    <input
+                      type="checkbox"
+                      id="rememberMeLogin"
+                      checked={rememberMe}
+                      onChange={e => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-forest-600 focus:ring-forest-500 cursor-pointer accent-forest-600"
+                    />
+                    <span>Kirishni saqlash</span>
+                  </label>
                 </div>
 
                 <button
@@ -454,6 +468,19 @@ export const Auth: React.FC = () => {
                     </p>
                   </div>
                 )}
+
+                <div className="flex items-center justify-between py-1">
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-300 select-none hover:text-white transition">
+                    <input
+                      type="checkbox"
+                      id="rememberMeRegister"
+                      checked={rememberMe}
+                      onChange={e => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-forest-600 focus:ring-forest-500 cursor-pointer accent-forest-600"
+                    />
+                    <span>Kirishni saqlash</span>
+                  </label>
+                </div>
 
                 <button
                   type="submit"

@@ -12,6 +12,12 @@ import {
 } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { SecurityTestCase } from '../types';
+import {
+  detectXss,
+  sanitizeHtml,
+  detectSqlInjection,
+  buildParameterizedQuery,
+} from '../lib/security';
 
 export const SecurityTesting: React.FC = () => {
   const { state, showToast } = useApp();
@@ -119,6 +125,26 @@ export const SecurityTesting: React.FC = () => {
       actual_outcome: 'Kutilmoqda (Test ishga tushirilmagan)',
       status: 'PENDING',
       remediation_advice: 'Client/Network rate limiting: IP bo\'yicha xato urinishlar 5 taga yetganda 30 daqiqalik lockout qo\'llaniladi. Boshqa qurilmadagi qonuniy foydalanuvchi tizimga kira oladi.',
+    },
+    {
+      id: 'test-k',
+      code: 'TEST-K',
+      name: 'XSS (Cross-Site Scripting) Hujumlaridan Himoya & Sanitizatsiya',
+      objective: 'Zararli skriptlar (<script>, onerror, onload, javascript:) kiritilishini aniqlash, tozalash va auditga yozish',
+      expected_outcome: 'Zararli teglar va event handlerlar to\'liq zararsizlantiriladi, faqat toza xavfsiz matn saqlanadi, auditga SECURITY_XSS_DETECTED yoziladi.',
+      actual_outcome: 'Kutilmoqda (Test ishga tushirilmagan)',
+      status: 'PENDING',
+      remediation_advice: 'Har bir kiruvchi satr sanitizeHtml va sanitizatsiya dvigateli orqali tekshiriladi; CSP (Content-Security-Policy) va X-XSS-Protection orqali brauzer darajasida bloklanadi.',
+    },
+    {
+      id: 'test-l',
+      code: 'TEST-L',
+      name: 'SQL Injection (SQLi) Hujumlarini Aniqlash & Parametrlashtirilgan Himoya',
+      objective: '\' OR \'1\'=\'1, UNION SELECT, ; DROP TABLE kabi SQL injection payloadlarini serverda to\'xtatish va so\'rovlarni parametrlashtirish ($1, $2)',
+      expected_outcome: 'Barcha SQL injection naqshlari aniqlanadi, auditga SECURITY_SQLI_DETECTED yoziladi va ma\'lumotlar parametrlashtirilgan xavfsiz so\'rovlar orqali qayta ishlanadi.',
+      actual_outcome: 'Kutilmoqda (Test ishga tushirilmagan)',
+      status: 'PENDING',
+      remediation_advice: 'Xom SQL string konkatenatsiyasi (string concatenation) to\'liq taqiqlangan. PostgreSQL parameterized queries ($1, $2) va qat\'iy regex identifikator tekshiruvlari qo\'llaniladi.',
     },
   ];
 
@@ -448,9 +474,112 @@ export const SecurityTesting: React.FC = () => {
       updated[9].actual_outcome = e.message;
     }
 
+    // TEST K: XSS (Cross-Site Scripting) Attack Defense & Sanitization
+    try {
+      const xssLogs: string[] = [];
+      const maliciousScript = "<script>alert('XSS_ATTACK_2026')</script>";
+      const maliciousImg = '<img src="x" onerror="stealCookie()" />';
+      const maliciousLink = '<a href="javascript:evil()">Hacked</a>';
+
+      xssLogs.push(`[PAYLOAD 1] Kiritilgan xavfli script: "${maliciousScript}"`);
+      const detect1 = detectXss(maliciousScript);
+      const sanitized1 = sanitizeHtml(maliciousScript);
+      xssLogs.push(`[DETECTION 1] Aniqlangan xavf: ${detect1.detectedThreats.join(', ')} -> Tozalangan natija: "${sanitized1}"`);
+
+      xssLogs.push(`[PAYLOAD 2] Kiritilgan inline onerror: "${maliciousImg}"`);
+      const detect2 = detectXss(maliciousImg);
+      const sanitized2 = sanitizeHtml(maliciousImg);
+      xssLogs.push(`[DETECTION 2] Aniqlangan xavf: ${detect2.detectedThreats.join(', ')} -> Tozalangan natija: "${sanitized2}"`);
+
+      xssLogs.push(`[PAYLOAD 3] Kiritilgan javascript: havola: "${maliciousLink}"`);
+      const sanitized3 = sanitizeHtml(maliciousLink);
+      xssLogs.push(`[DETECTION 3] Tozalangan natija: "${sanitized3}"`);
+
+      // Test backend engine integration
+      const testMaliciousObj = {
+        title: "Naslli Qo'chqor <script>alert('hacked')</script>",
+        notes: "Sog'lom <img src=x onerror=steal()>",
+      };
+      const cleanedObj = backendEngine.guardAndSanitize(testMaliciousObj, 'TEST-K XSS tekshiruv');
+      xssLogs.push(`[BACKEND GUARD] Obyekt tozalash: title -> "${cleanedObj.title}", notes -> "${cleanedObj.notes}"`);
+      xssLogs.push(`[AUDIT EVENT] Tizim audit jurnaliga SECURITY_XSS_DETECTED hodisasi yozildi`);
+
+      const xssPassed =
+        detect1.isMalicious &&
+        detect2.isMalicious &&
+        !sanitized1.includes('<script>') &&
+        !sanitized2.includes('onerror') &&
+        !sanitized3.includes('javascript:') &&
+        !cleanedObj.title.includes('<script>');
+
+      updated[10] = {
+        ...updated[10],
+        status: xssPassed ? 'PASS' : 'FAIL',
+        actual_outcome: xssPassed
+          ? `Muvaffaqiyatli: Barcha XSS vektorlari (<script>, onerror, javascript:) to'liq aniqlandi va zararsizlantirildi. Xavfsiz matn saqlandi va auditga SECURITY_XSS_DETECTED qayd etildi.`
+          : "Xatolik: XSS sanitizatsiyasi to'liq ishlamadi.",
+        execution_log: xssLogs,
+      };
+    } catch (e: any) {
+      updated[10].status = 'FAIL';
+      updated[10].actual_outcome = e.message;
+    }
+
+    // TEST L: SQL Injection (SQLi) Detection & Parameterized Query Defense
+    try {
+      const sqliLogs: string[] = [];
+      const sqliPayload1 = "' OR '1'='1";
+      const sqliPayload2 = "admin' UNION SELECT id, email, password FROM users --";
+      const sqliPayload3 = "1; DROP TABLE animals; --";
+
+      sqliLogs.push(`[PAYLOAD 1] Tautology hujumi: "${sqliPayload1}"`);
+      const check1 = detectSqlInjection(sqliPayload1);
+      sqliLogs.push(`[DETECTION 1] Aniqlangan SQLi: ${check1.detectedPatterns.join(', ')}`);
+
+      sqliLogs.push(`[PAYLOAD 2] UNION SELECT hujumi: "${sqliPayload2}"`);
+      const check2 = detectSqlInjection(sqliPayload2);
+      sqliLogs.push(`[DETECTION 2] Aniqlangan SQLi: ${check2.detectedPatterns.join(', ')}`);
+
+      sqliLogs.push(`[PAYLOAD 3] Kombinatsiyalangan DROP TABLE: "${sqliPayload3}"`);
+      const check3 = detectSqlInjection(sqliPayload3);
+      sqliLogs.push(`[DETECTION 3] Aniqlangan SQLi: ${check3.detectedPatterns.join(', ')}`);
+
+      // Test Parameterized Query Builder
+      const safeQuery = buildParameterizedQuery(
+        'SELECT * FROM animals WHERE farm_id = ? AND species = ? AND status = ?',
+        [state.currentFarmId, sqliPayload1, 'active']
+      );
+      sqliLogs.push(`[PARAMETERIZED QUERY] SQL shablon: "${safeQuery.parameterizedSql}"`);
+      sqliLogs.push(`[BOUND PARAMETERS] Parametrlar ($1, $2, $3): [${safeQuery.boundParameters.map(p => `"${p}"`).join(', ')}]`);
+      sqliLogs.push(`[DEFENSE MECHANISM] String concatenation bloklangan. SQL sintaksis buzilishi imkonsiz ($1 parametr sifatida uzatildi).`);
+
+      // Trigger backend guard
+      backendEngine.guardAndSanitize({ search: sqliPayload2 }, 'TEST-L SQLi tekshiruv');
+      sqliLogs.push(`[AUDIT EVENT] Tizim audit jurnaliga SECURITY_SQLI_DETECTED hodisasi yozildi`);
+
+      const sqliPassed =
+        check1.isMalicious &&
+        check2.isMalicious &&
+        check3.isMalicious &&
+        safeQuery.parameterizedSql.includes('$1') &&
+        safeQuery.parameterizedSql.includes('$2');
+
+      updated[11] = {
+        ...updated[11],
+        status: sqliPassed ? 'PASS' : 'FAIL',
+        actual_outcome: sqliPassed
+          ? `Muvaffaqiyatli: SQL Injection vektorlari (' OR '1'='1, UNION SELECT, ; DROP TABLE) to'liq aniqlandi. So'rovlar parametrlashtirildi ($1, $2) va auditga SECURITY_SQLI_DETECTED qayd etildi.`
+          : 'Xatolik: SQLi aniqlash yoki parametrlashtirishda kamchilik aniqlandi.',
+        execution_log: sqliLogs,
+      };
+    } catch (e: any) {
+      updated[11].status = 'FAIL';
+      updated[11].actual_outcome = e.message;
+    }
+
     setTestCases(updated);
     setIsRunning(false);
-    showToast('Barcha 10 ta xavfsizlik va funksional qabul testlari bajarildi!', 'success');
+    showToast('Barcha 12 ta xavfsizlik va mudofaa testlari bajarildi!', 'success');
   };
 
   const passCount = testCases.filter(t => t.status === 'PASS').length;

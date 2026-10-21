@@ -13,6 +13,10 @@ import {
   AlertTriangle,
   Server,
   Layers,
+  Code,
+  ShieldAlert,
+  Terminal,
+  Bug,
 } from 'lucide-react';
 import {
   sha256Hash,
@@ -21,6 +25,13 @@ import {
   generateAesKey,
   exportKeyToBase64,
 } from '../lib/crypto';
+import {
+  detectXss,
+  sanitizeHtml,
+  escapeHtml,
+  detectSqlInjection,
+  buildParameterizedQuery,
+} from '../lib/security';
 import { Badge } from '../components/ui/Badge';
 
 export const SecurityCenter: React.FC = () => {
@@ -37,6 +48,20 @@ export const SecurityCenter: React.FC = () => {
   const [ivHex, setIvHex] = useState('');
   const [decryptedText, setDecryptedText] = useState('');
   const [decryptError, setDecryptError] = useState<string | null>(null);
+
+  // XSS Defense Interactive Lab State
+  const [xssInput, setXssInput] = useState("<script>alert('XSS xavfi!')</script><p>Hisori zotli qo'chqor <img src=x onerror=alert('o\\'g\\'irlandi')></p>");
+  const xssDetection = React.useMemo(() => detectXss(xssInput), [xssInput]);
+  const sanitizedXssOutput = React.useMemo(() => sanitizeHtml(xssInput), [xssInput]);
+  const escapedHtmlOutput = React.useMemo(() => escapeHtml(xssInput), [xssInput]);
+
+  // SQL Injection Interactive Lab State
+  const [sqliInput, setSqliInput] = useState("' OR '1'='1");
+  const sqliDetection = React.useMemo(() => detectSqlInjection(sqliInput), [sqliInput]);
+  const parameterizedSqlResult = React.useMemo(
+    () => buildParameterizedQuery('SELECT * FROM animal_groups WHERE farm_id = ? AND species = ?', ['farm-101', sqliInput]),
+    [sqliInput]
+  );
 
   // Compute live SHA-256
   const handleComputeHash = async () => {
@@ -289,6 +314,263 @@ export const SecurityCenter: React.FC = () => {
             <span>{decryptError}</span>
           </div>
         )}
+      </div>
+
+      {/* SECTION 2.5: INTERACTIVE XSS & SQL INJECTION DEFENSE LAB */}
+      <div className="bg-white dark:bg-[#0E1A16] rounded-3xl p-6 sm:p-8 border border-slate-200/90 dark:border-white/10 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-white/5 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 flex items-center justify-center">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                Kiberxavfsizlik Laboratoriyasi: XSS & SQL Injection Mudofaasi
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                OWASP Top 10 standartlari: Kiberhujum vektorlarini jonli sinash va zararsizlantirish
+              </p>
+            </div>
+          </div>
+          <span className="self-start sm:self-auto text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/60">
+            WAF & Sanitizatsiya Faol
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* XSS Defense Sandbox */}
+          <div className="p-5 rounded-2xl border border-slate-200/90 dark:border-white/10 bg-slate-50/50 dark:bg-[#14231E]/40 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Code className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">XSS (Cross-Site Scripting) Testi</h3>
+              </div>
+              <Badge variant={xssDetection.isMalicious ? 'rose' : 'emerald'} size="sm">
+                {xssDetection.isMalicious ? 'XAVFLI SCRIPT' : 'XAVFSIZ MATN'}
+              </Badge>
+            </div>
+
+            {/* Quick Test Vectors */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
+                Tayyor hujum namunalari (Payloads):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setXssInput("<script>alert('XSS_Hujumi!')</script>")}
+                  className="px-2.5 py-1 text-[11px] font-mono bg-white dark:bg-white/10 hover:bg-slate-100 border border-slate-200 dark:border-white/10 rounded-lg transition"
+                >
+                  &lt;script&gt;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setXssInput("<img src=x onerror=\"alert('Cookie stolen!')\" />")}
+                  className="px-2.5 py-1 text-[11px] font-mono bg-white dark:bg-white/10 hover:bg-slate-100 border border-slate-200 dark:border-white/10 rounded-lg transition"
+                >
+                  onerror=
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setXssInput("<a href=\"javascript:evil()\">Xavfli Havola</a>")}
+                  className="px-2.5 py-1 text-[11px] font-mono bg-white dark:bg-white/10 hover:bg-slate-100 border border-slate-200 dark:border-white/10 rounded-lg transition"
+                >
+                  javascript:
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setXssInput("Hisori zotli qo'chqor, yoshi 2 da, vazni 85 kg.")}
+                  className="px-2.5 py-1 text-[11px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 rounded-lg transition"
+                >
+                  Toza matn
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                Kiritilayotgan satr (Kirish maydoni):
+              </label>
+              <textarea
+                rows={3}
+                value={xssInput}
+                onChange={e => setXssInput(e.target.value)}
+                className="w-full p-2.5 bg-white dark:bg-[#0E1A16] border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-forest-600 transition"
+                placeholder="XSS kodini kiriting..."
+              />
+            </div>
+
+            {/* Live Detection Alert */}
+            {xssDetection.isMalicious ? (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 space-y-1">
+                <div className="flex items-center gap-2 font-bold">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                  <span>XSS xavfi aniqlandi!</span>
+                </div>
+                <ul className="list-disc list-inside text-[11px] space-y-0.5">
+                  {xssDetection.detectedThreats.map((t, i) => (
+                    <li key={i}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Zararli skript teglari topilmadi. Matn xavfsiz.</span>
+              </div>
+            )}
+
+            {/* Sanitized Clean Output */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                Sanitizatsiya qilingan (Zararsizlantirilgan) toza natija:
+              </span>
+              <div className="p-2.5 bg-slate-900 text-slate-200 rounded-xl text-xs font-mono min-h-[40px] break-all border border-slate-800">
+                {sanitizedXssOutput ? sanitizedXssOutput : <span className="text-slate-500 italic">(Bo'sh — barcha zararli kod tozalandi)</span>}
+              </div>
+            </div>
+
+            {/* Escaped HTML */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                Xavfsiz HTML Entity (Escaped Code):
+              </span>
+              <div className="p-2.5 bg-slate-100 dark:bg-black/40 text-slate-700 dark:text-slate-300 rounded-xl text-[11px] font-mono break-all border border-slate-200 dark:border-white/5">
+                {escapedHtmlOutput}
+              </div>
+            </div>
+          </div>
+
+          {/* SQL Injection Defense Sandbox */}
+          <div className="p-5 rounded-2xl border border-slate-200/90 dark:border-white/10 bg-slate-50/50 dark:bg-[#14231E]/40 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">SQL Injection (SQLi) Testi</h3>
+              </div>
+              <Badge variant={sqliDetection.isMalicious ? 'rose' : 'emerald'} size="sm">
+                {sqliDetection.isMalicious ? 'SQL INJECTION' : 'PARAMETRLI XAVFSIZ'}
+              </Badge>
+            </div>
+
+            {/* Quick Test Vectors */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
+                Tayyor SQLi namunalari (Payloads):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSqliInput("' OR '1'='1")}
+                  className="px-2.5 py-1 text-[11px] font-mono bg-white dark:bg-white/10 hover:bg-slate-100 border border-slate-200 dark:border-white/10 rounded-lg transition"
+                >
+                  ' OR '1'='1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSqliInput("1; DROP TABLE users; --")}
+                  className="px-2.5 py-1 text-[11px] font-mono bg-white dark:bg-white/10 hover:bg-slate-100 border border-slate-200 dark:border-white/10 rounded-lg transition"
+                >
+                  ; DROP TABLE
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSqliInput("admin' UNION SELECT id, email, password FROM users --")}
+                  className="px-2.5 py-1 text-[11px] font-mono bg-white dark:bg-white/10 hover:bg-slate-100 border border-slate-200 dark:border-white/10 rounded-lg transition"
+                >
+                  UNION SELECT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSqliInput("Qo'y")}
+                  className="px-2.5 py-1 text-[11px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 rounded-lg transition"
+                >
+                  Toza parametr
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                Kiritilayotgan parametr (Masalan, qidiruv satri):
+              </label>
+              <textarea
+                rows={3}
+                value={sqliInput}
+                onChange={e => setSqliInput(e.target.value)}
+                className="w-full p-2.5 bg-white dark:bg-[#0E1A16] border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-forest-600 transition"
+                placeholder="SQLi payload kiriting..."
+              />
+            </div>
+
+            {/* Live Detection Alert */}
+            {sqliDetection.isMalicious ? (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 space-y-1">
+                <div className="flex items-center gap-2 font-bold">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                  <span>SQL Injection xavfi aniqlandi!</span>
+                </div>
+                <ul className="list-disc list-inside text-[11px] space-y-0.5">
+                  {sqliDetection.detectedPatterns.map((p, i) => (
+                    <li key={i}>{p}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>SQL sintaksisi buzuvchi xavfli belgilar topilmadi.</span>
+              </div>
+            )}
+
+            {/* Parameterized Query Output */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                PostgreSQL Parametrlashtirilgan So'rov (Prepared Statement):
+              </span>
+              <div className="p-2.5 bg-slate-900 text-amber-300 rounded-xl text-xs font-mono break-all border border-slate-800">
+                {parameterizedSqlResult.parameterizedSql}
+              </div>
+            </div>
+
+            {/* Bound Parameters Display */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                Bog'langan Parametrlar (Bound Values):
+              </span>
+              <div className="p-2.5 bg-slate-100 dark:bg-black/40 text-slate-700 dark:text-slate-300 rounded-xl text-[11px] font-mono break-all border border-slate-200 dark:border-white/5 space-y-0.5">
+                <p><span className="text-forest-700 dark:text-forest-400 font-bold">$1:</span> 'farm-101'</p>
+                <p><span className="text-forest-700 dark:text-forest-400 font-bold">$2:</span> '{sqliInput}' <span className="text-slate-500 italic">(Oddiy satr sifatida uzatildi, SQL buyrug'i sifatida bajarilmaydi)</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Defense Mechanisms Information */}
+        <div className="p-4 rounded-2xl bg-forest-50/60 dark:bg-forest-950/30 border border-forest-200 dark:border-forest-800/40 space-y-2">
+          <h4 className="text-xs font-bold text-forest-900 dark:text-forest-200 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-forest-700 dark:text-forest-400" />
+            Podachi Platformasining 4 Bosqichli Kiberhimoya Zanjiri:
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-600 dark:text-slate-300">
+            <div>
+              <strong className="text-slate-900 dark:text-white block mb-0.5">1. Kiruvchi Ma'lumot Sanitizatsiyasi:</strong>
+              Har bir maydon (matn, tavsif, zot, ism) `sanitizeHtml` va qat'iy regex filtrlari orqali xavfli teglardan tozalanadi.
+            </div>
+            <div>
+              <strong className="text-slate-900 dark:text-white block mb-0.5">2. Parameterized Queries (SQLi Himoyasi):</strong>
+              Dinamik SQL string ulash taqiqlangan. Barcha so'rovlar PostgreSQL `$1, $2` prepared statementlari orqali yuboriladi.
+            </div>
+            <div>
+              <strong className="text-slate-900 dark:text-white block mb-0.5">3. Kiberxavfsizlik Sarlavhalari (CSP & HTTP):</strong>
+              `Content-Security-Policy`, `X-XSS-Protection: 1; mode=block` va `X-Content-Type-Options: nosniff` brauzerda inline hujumlarni bloklaydi.
+            </div>
+            <div>
+              <strong className="text-slate-900 dark:text-white block mb-0.5">4. Audit Log Kiberxabarnomasi:</strong>
+              Har qanday XSS yoki SQLi urinishi avtomatik ravishda `SECURITY_XSS_DETECTED` / `SECURITY_SQLI_DETECTED` sifatida audit jurnaliga yoziladi.
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* SECTION 3: THEORETICAL COMPARISON (HASH VS ENCRYPTION) */}

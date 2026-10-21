@@ -48,6 +48,14 @@ import {
   INITIAL_MARKETPLACE_OFFERS,
   INITIAL_AUDIT_LOGS,
 } from './initialData';
+import {
+  inspectSecurityPayload,
+  sanitizeHtml,
+  sanitizeObject,
+  detectXss,
+  detectSqlInjection,
+  buildParameterizedQuery,
+} from './security';
 
 export const UNIVERSAL_ANIMAL_FEED_NORMS: Record<string, AnimalDailyFeedNorm> = {
   qoramol: {
@@ -671,17 +679,19 @@ export class PodachiBackendEngine {
   }
 
   public register(data: RegisterData, rememberMe: boolean = false): UserProfile {
-    if (!data.full_name || data.full_name.trim().length < 2) {
+    const cleanData = this.guardAndSanitize(data, 'Foydalanuvchi Ro\'yxatdan o\'tish');
+
+    if (!cleanData.full_name || cleanData.full_name.trim().length < 2) {
       throw new Error("Ism va familiyani to'liq kiriting.");
     }
-    if (!data.email || !data.email.includes('@')) {
+    if (!cleanData.email || !cleanData.email.includes('@')) {
       throw new Error("To'g'ri email manzilini kiriting.");
     }
-    if (!data.password || data.password.length < 6) {
+    if (!cleanData.password || cleanData.password.length < 6) {
       throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
     }
 
-    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanEmail = cleanData.email.trim().toLowerCase();
     const exists = this.state.users.find(u => u.email.toLowerCase() === cleanEmail);
     if (exists) {
       throw new Error("Ushbu email manzili bilan hisob allaqachon mavjud.");
@@ -690,9 +700,9 @@ export class PodachiBackendEngine {
     const newUser: UserProfile = {
       id: 'user-' + Math.random().toString(36).substring(2, 9),
       email: cleanEmail,
-      full_name: data.full_name.trim(),
+      full_name: cleanData.full_name.trim(),
       created_at: new Date().toISOString(),
-      password: data.password,
+      password: cleanData.password,
     };
 
     this.state.users.push(newUser);
@@ -896,6 +906,32 @@ export class PodachiBackendEngine {
     this.state.auditLogs = [newLog, ...this.state.auditLogs];
   }
 
+  // --- Cyber Defense & Sanitization (XSS & SQL Injection Guard) ---
+  public guardAndSanitize<T>(data: T, resourceName: string = 'Tizim ma\'lumoti'): T {
+    const inspection = inspectSecurityPayload(data as any, resourceName);
+    if (!inspection.isSafe) {
+      if (inspection.threatType === 'XSS' || inspection.threatType === 'BOTH') {
+        this.logAudit({
+          farm_id: this.state.currentFarmId,
+          action_type: 'SECURITY_XSS_DETECTED',
+          result: 'BLOCKED',
+          resource_name: resourceName,
+          details: `XSS (Cross-Site Scripting) kiberxuruj aniqlandi va to'xtatildi: ${inspection.threats.join('; ')}`,
+        });
+      }
+      if (inspection.threatType === 'SQLI' || inspection.threatType === 'BOTH') {
+        this.logAudit({
+          farm_id: this.state.currentFarmId,
+          action_type: 'SECURITY_SQLI_DETECTED',
+          result: 'BLOCKED',
+          resource_name: resourceName,
+          details: `SQL Injection (SQLi) kiberxuruj aniqlandi va to'xtatildi: ${inspection.threats.join('; ')}`,
+        });
+      }
+    }
+    return inspection.sanitized;
+  }
+
   // --- Farm Management ---
   public validateFarmName(name: string): { valid: boolean; error?: string } {
     if (!name || name.trim().length === 0) {
@@ -986,7 +1022,8 @@ export class PodachiBackendEngine {
 
   public searchFarmByName(query: string): Farm | null {
     if (!query || !query.trim()) return null;
-    const clean = query.trim().toLowerCase();
+    const cleanQuery = this.guardAndSanitize(query, 'Ferma qidiruvi');
+    const clean = cleanQuery.trim().toLowerCase();
     return this.state.farms.find(f => f.name.toLowerCase() === clean) || null;
   }
 
@@ -999,10 +1036,12 @@ export class PodachiBackendEngine {
     this.checkPermission(['admin'], 'farms', 'Ferma sozlamalarini yangilash');
     const farm = this.state.farms.find(f => f.id === this.state.currentFarmId);
     if (!farm) throw new Error('Faol ferma topilmadi.');
-    farm.display_title = data.display_title;
-    farm.location = data.location;
-    farm.description = data.description;
-    farm.contact_phone = data.contact_phone;
+
+    const cleanData = this.guardAndSanitize(data, 'Ferma sozlamalari');
+    farm.display_title = cleanData.display_title;
+    farm.location = cleanData.location;
+    farm.description = cleanData.description;
+    farm.contact_phone = cleanData.contact_phone;
     this.logAudit({
       farm_id: farm.id,
       action_type: 'SETTINGS_CHANGE',
@@ -1161,19 +1200,21 @@ export class PodachiBackendEngine {
       throw new Error("Chorva soni manfiy bo'lishi mumkin emas.");
     }
 
+    const clean = this.guardAndSanitize(data, 'Chorva guruhi');
+
     const newGroup: AnimalGroup = {
       id: 'group-' + Math.random().toString(36).substring(2, 9),
       farm_id: this.state.currentFarmId,
-      species: data.species,
-      breed: data.breed,
-      gender_type: data.gender_type,
-      age_group: data.age_group,
-      initial_head_count: data.initial_head_count,
-      current_head_count: data.initial_head_count,
-      average_weight_kg: data.average_weight_kg,
-      pen_location: data.pen_location,
-      health_status: data.health_status,
-      notes: data.notes,
+      species: clean.species,
+      breed: clean.breed,
+      gender_type: clean.gender_type,
+      age_group: clean.age_group,
+      initial_head_count: clean.initial_head_count,
+      current_head_count: clean.initial_head_count,
+      average_weight_kg: clean.average_weight_kg,
+      pen_location: clean.pen_location,
+      health_status: clean.health_status,
+      notes: clean.notes,
       created_at: new Date().toISOString(),
     };
 
@@ -1454,6 +1495,8 @@ export class PodachiBackendEngine {
     const expires = new Date();
     expires.setDate(expires.getDate() + 30);
 
+    const clean = this.guardAndSanitize(data, "Bozor e'loni");
+
     const newListing: MarketplaceListing = {
       id: 'listing-' + Math.random().toString(36).substring(2, 9),
       farm_id: farm.id,
@@ -1463,20 +1506,20 @@ export class PodachiBackendEngine {
       breed: group.breed,
       gender_type: group.gender_type,
       age_group: group.age_group,
-      initial_quantity_for_sale: data.quantity,
-      quantity_reserved: data.quantity, // Reserving all requested
+      initial_quantity_for_sale: clean.quantity,
+      quantity_reserved: clean.quantity, // Reserving all requested
       quantity_sold: 0,
-      remaining_quantity: data.quantity,
-      price_per_head_uzs: data.price_per_head_uzs,
-      total_calculated_uzs: data.quantity * data.price_per_head_uzs,
-      region: data.region,
-      district: data.district,
-      photos: data.photos && data.photos.length > 0 ? data.photos : [
+      remaining_quantity: clean.quantity,
+      price_per_head_uzs: clean.price_per_head_uzs,
+      total_calculated_uzs: clean.quantity * clean.price_per_head_uzs,
+      region: clean.region,
+      district: clean.district,
+      photos: clean.photos && clean.photos.length > 0 ? clean.photos : [
         'https://images.unsplash.com/photo-1484557052118-f32bd25b45b5?auto=format&fit=crop&w=800&q=80'
       ],
-      description: data.description,
-      contact_phone: data.contact_phone,
-      contact_name: data.contact_name,
+      description: clean.description,
+      contact_phone: clean.contact_phone,
+      contact_name: clean.contact_name,
       expires_at: expires.toISOString(),
       status: 'active',
       created_at: new Date().toISOString(),
@@ -1738,22 +1781,24 @@ export class PodachiBackendEngine {
       throw new Error(`Muolaja qilingan soni (${data.heads_treated}) guruhdagi mavjud sonidan (${group.current_head_count}) oshmasligi kerak.`);
     }
 
+    const clean = this.guardAndSanitize(data, 'Veterinariya qaydi');
+
     const newRecord: VeterinaryRecord = {
       id: 'vet-' + Math.random().toString(36).substring(2, 9),
       farm_id: this.state.currentFarmId,
       group_id: group.id,
       group_info: `${group.breed} ${group.species} (${group.current_head_count} bosh)`,
-      record_type: data.record_type,
-      title: data.title,
-      heads_treated: data.heads_treated,
+      record_type: clean.record_type,
+      title: clean.title,
+      heads_treated: clean.heads_treated,
       total_group_heads: group.current_head_count,
-      medicine_name: data.medicine_name,
-      dosage: data.dosage,
+      medicine_name: clean.medicine_name,
+      dosage: clean.dosage,
       veterinarian_name: this.state.currentUser.full_name,
       date: new Date().toISOString().split('T')[0],
-      next_checkup_date: data.next_checkup_date,
-      notes: data.notes,
-      status: data.status,
+      next_checkup_date: clean.next_checkup_date,
+      notes: clean.notes,
+      status: clean.status,
       created_at: new Date().toISOString(),
     };
 
@@ -1782,15 +1827,17 @@ export class PodachiBackendEngine {
   }): FeedItem {
     this.checkPermission(['admin', 'head_manager', 'manager'], 'feed_inventory', 'Yangi ozuqa qo\'shish');
 
+    const clean = this.guardAndSanitize(data, 'Ozuqa zaxirasi');
+
     const item: FeedItem = {
       id: 'feed-' + Math.random().toString(36).substring(2, 9),
       farm_id: this.state.currentFarmId,
-      name: data.name,
-      feed_type: data.feed_type,
-      stock_quantity: data.stock_quantity,
-      unit: data.unit,
-      min_threshold: data.min_threshold,
-      unit_price_uzs: data.unit_price_uzs,
+      name: clean.name,
+      feed_type: clean.feed_type,
+      stock_quantity: clean.stock_quantity,
+      unit: clean.unit,
+      min_threshold: clean.min_threshold,
+      unit_price_uzs: clean.unit_price_uzs,
       updated_at: new Date().toISOString(),
     };
     this.state.feedItems.push(item);

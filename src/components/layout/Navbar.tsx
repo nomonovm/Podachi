@@ -34,6 +34,7 @@ export const Navbar: React.FC = () => {
 
   const roleLabels: Record<string, { label: string; variant: 'forest' | 'emerald' | 'amber' | 'slate' }> = {
     admin: { label: 'Administrator', variant: 'forest' },
+    head_manager: { label: 'Bosh Menejer', variant: 'emerald' },
     manager: { label: 'Menejer', variant: 'emerald' },
     veterinarian: { label: 'Veterinar', variant: 'amber' },
     viewer: { label: 'Kuzatuvchi', variant: 'slate' },

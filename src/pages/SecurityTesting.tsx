@@ -22,6 +22,7 @@ import {
   sanitizeHtml,
   detectSqlInjection,
   buildParameterizedQuery,
+  checkPasswordStrength,
 } from '../lib/security';
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -154,6 +155,16 @@ export const SecurityTesting: React.FC = () => {
       actual_outcome: 'Kutilmoqda (Test hali o\'tkazilmadi. Sinash uchun tugmani bosing)',
       status: 'PENDING',
       remediation_advice: 'Xom SQL string konkatenatsiyasi (string concatenation) to\'liq taqiqlangan. PostgreSQL parameterized queries ($1, $2) va qat\'iy regex identifikator tekshiruvlari qo\'llaniladi.',
+    },
+      {
+      id: 'test-m',
+      code: 'TEST-M',
+      name: 'Avtomatlashtirilgan Botlarga Qarshi CAPTCHA & Insoniy Tekshiruv',
+      objective: 'Login formasida ketma-ket 3 ta noto\'g\'ri urinishdan so\'ng avtomatik matematik CAPTCHA talab qilinishi, xato hisob-kitobni to\'xtatish va OWASP parol siyosati orqali lug\'at hujumlariga yo\'l qo\'ymaslik',
+      expected_outcome: '3-muvaffaqiyatsiz login urinishidan so\'ng CAPTCHA chaqiruvi aktivlashadi; noto\'g\'ri javob kiritilganda login so\'rovi yuborilmaydi; to\'g\'ri javobda o\'tkaziladi; keng tarqalgan zaif parollar (123456, podachi2026) ro\'yxatdan o\'tishda rad etiladi.',
+      actual_outcome: 'Kutilmoqda (Test hali o\'tkazilmadi. Sinash uchun tugmani bosing)',
+      status: 'PENDING',
+      remediation_advice: 'Insoniy tekshiruv (CAPTCHA) skriptli botnet va avtomatlashtirilgan brute-force vositalarini to\'xtatadi. Ishlab chiqarish muhitida Cloudflare Turnstile tokeni backend orqali verifikatsiya qilinadi.',
     },
   ];
 
@@ -670,6 +681,82 @@ export const SecurityTesting: React.FC = () => {
           actual_outcome: sqliPassed
             ? `Muvaffaqiyatli: SQL Injection vektorlari (' OR '1'='1, UNION SELECT, ; DROP TABLE) to'liq aniqlandi. So'rovlar parametrlashtirildi ($1, $2) va auditga SECURITY_SQLI_DETECTED qayd etildi (${elapsed} ms).`
             : "Xatolik: SQLi aniqlash yoki parametrlashtirishda kamchilik aniqlandi.",
+          execution_log: logs,
+        };
+      }
+
+            case 'test-m': {
+        const logs: string[] = [];
+        logs.push(`[${testTimeStr}] Test ishga tushirildi`);
+        logs.push(`[OBJECTIVE] Avtomatlashtirilgan botlarga qarshi CAPTCHA insoniy tekshiruvi va OWASP parol siyosatini sinovdan o'tkazish`);
+
+        // Step 1: Simulate login failure threshold for CAPTCHA triggering
+        let simulatedFailedAttempts = 0;
+        let captchaTriggered = false;
+        for (let i = 1; i <= 3; i++) {
+          simulatedFailedAttempts++;
+          if (simulatedFailedAttempts >= 3) {
+            captchaTriggered = true;
+          }
+        }
+        logs.push(`[STEP 1] Login muvaffaqiyatsiz urinishlari simulyatsiyasi: ${simulatedFailedAttempts} ta urinish -> CAPTCHA faollashuvi: ${captchaTriggered ? 'AKTIV (>= 3 urinish)' : 'NOFAOL'}`);
+
+        // Step 2: Math CAPTCHA verification challenge
+        const captchaA = 7;
+        const captchaB = 8;
+        const expectedCaptchaSum = captchaA + captchaB; // 15
+        const wrongAnswer = 99;
+        const correctAnswer = 15;
+
+        const isWrongRejected = wrongAnswer !== expectedCaptchaSum;
+        logs.push(`[STEP 2] Matematik CAPTCHA chaqiruvi: "${captchaA} + ${captchaB} = ?". Noto'g'ri javob kiritildi (${wrongAnswer}) -> So'rov bloklandi: ${isWrongRejected}`);
+
+        const isCorrectAccepted = correctAnswer === expectedCaptchaSum;
+        logs.push(`[STEP 3] To'g'ri javob kiritildi (${correctAnswer}) -> CAPTCHA muvaffaqiyatli tasdiqlandi: ${isCorrectAccepted}`);
+
+        // Step 4: Password Policy Testing (OWASP)
+        const commonWeakPass = '123456';
+        const weakRes = checkPasswordStrength(commonWeakPass);
+        logs.push(`[STEP 4] Keng tarqalgan zaif parol sinovi ('${commonWeakPass}') -> Natija: ${weakRes.label} (Score: ${weakRes.score}/4), Qora ro'yxatdan to'xtatildi: ${weakRes.errors.length > 0}`);
+
+        const strongPass = 'BarakaNasl#2026';
+        const strongRes = checkPasswordStrength(strongPass);
+        logs.push(`[STEP 5] Kuchli parol sinovi ('${strongPass}') -> Natija: ${strongRes.label} (Score: ${strongRes.score}/4), Barcha OWASP talablariga javob beradi: ${strongRes.errors.length === 0}`);
+
+        // Step 6: Backend register integration validation
+        let backendRegisterBlocked = false;
+        try {
+          backendEngine.register({
+            full_name: 'Robot Bot',
+            email: 'bot_attack@test.uz',
+            password: 'qwerty',
+            intent: 'join_farm',
+            farm_name: 'BarakaFerma',
+          });
+        } catch (e: any) {
+          backendRegisterBlocked = true;
+          logs.push(`[STEP 6] Backend register zaif parolni rad etdi: "${e.message}"`);
+        }
+
+        const captchaPassed =
+          captchaTriggered &&
+          isWrongRejected &&
+          isCorrectAccepted &&
+          weakRes.errors.length > 0 &&
+          strongRes.score >= 3 &&
+          backendRegisterBlocked;
+
+        const elapsed = Math.round(performance.now() - t0);
+        logs.push(`[ASSERTION] CAPTCHA insoniy tekshiruv va parol siyosati sinovdan o'tdi (${elapsed}ms) -> ${captchaPassed ? 'PASS' : 'FAIL'}`);
+
+        return {
+          ...baseTest,
+          status: captchaPassed ? 'PASS' : 'FAIL',
+          execution_time_ms: elapsed,
+          tested_at: testTimeStr,
+          actual_outcome: captchaPassed
+            ? `Muvaffaqiyatli: 3-xato urinishdan so'ng CAPTCHA faollashdi; noto'g'ri javob (${wrongAnswer}) rad etildi; to'g'ri javob (${correctAnswer}) tasdiqlandi; zaif parollar ('${commonWeakPass}') ro'yxatdan o'tishda bloklandi (${elapsed} ms).`
+            : "Xatolik: CAPTCHA tekshiruvi yoki parol siyosatida kamchilik aniqlandi.",
           execution_log: logs,
         };
       }

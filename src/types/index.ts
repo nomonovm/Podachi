@@ -371,6 +371,8 @@ export interface SecurityTestCase {
   status: 'PENDING' | 'PASS' | 'FAIL';
   execution_log?: string[];
   remediation_advice: string;
+  execution_time_ms?: number;
+  tested_at?: string;
 }
 
 // --- Payroll & Salary Management Types ---

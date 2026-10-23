@@ -440,19 +440,22 @@ export class PodachiBackendEngine {
     }
   }
 
+  private inMemoryRateLimits: Record<string, { failedAttempts: number; lockedUntil: number | null; lastAttemptAt: string }> = {};
+
   private loadRateLimits(): Record<string, { failedAttempts: number; lockedUntil: number | null; lastAttemptAt: string }> {
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-      return {};
+      return this.inMemoryRateLimits;
     }
     try {
       const raw = localStorage.getItem(PodachiBackendEngine.RATE_LIMIT_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
+      return raw ? JSON.parse(raw) : this.inMemoryRateLimits;
     } catch {
-      return {};
+      return this.inMemoryRateLimits;
     }
   }
 
   private saveRateLimits(limits: Record<string, { failedAttempts: number; lockedUntil: number | null; lastAttemptAt: string }>): void {
+    this.inMemoryRateLimits = limits;
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
     try {
       localStorage.setItem(PodachiBackendEngine.RATE_LIMIT_STORAGE_KEY, JSON.stringify(limits));

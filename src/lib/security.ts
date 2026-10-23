@@ -37,9 +37,9 @@ export function detectXss(input: string): { isMalicious: boolean; detectedThreat
   const detectedThreats: string[] = [];
 
   for (const pattern of XSS_PATTERNS) {
+    pattern.regex.lastIndex = 0;
     if (pattern.regex.test(input)) {
       detectedThreats.push(pattern.name);
-      // Reset regex index for global flags
       pattern.regex.lastIndex = 0;
     }
   }
@@ -70,10 +70,11 @@ export function sanitizeHtml(input: string): string {
   sanitized = sanitized.replace(/\bon\w+\s*=\s*(['"]).*?\1/gi, '');
   sanitized = sanitized.replace(/\bon\w+\s*=\s*[^ >]+/gi, '');
 
-  // 4. javascript: va vbscript: havolalarini zararsizlantirish
-  sanitized = sanitized.replace(/\bjavascript\s*:/gi, 'blocked-javascript:');
-  sanitized = sanitized.replace(/\bvbscript\s*:/gi, 'blocked-vbscript:');
-  sanitized = sanitized.replace(/\bdata\s*:\s*text\/html/gi, 'blocked-data:');
+  // 4. javascript: va vbscript: havolalarini butunlay zararsizlantirish
+  sanitized = sanitized.replace(/\bjavascript\s*:[^"'>\s]*/gi, '#blocked');
+  sanitized = sanitized.replace(/\bvbscript\s*:[^"'>\s]*/gi, '#blocked');
+  sanitized = sanitized.replace(/\bdata\s*:\s*text\/html[^"'>\s]*/gi, '#blocked');
+  sanitized = sanitized.replace(/\bjavascript\s*:/gi, '#blocked');
 
   // 5. Trim qilish
   return sanitized.trim();
@@ -81,7 +82,7 @@ export function sanitizeHtml(input: string): string {
 
 // SQL Injection tekshiruvchi regex qoidalari (SQLi Detection Patterns)
 const SQLI_PATTERNS: { name: string; regex: RegExp }[] = [
-  { name: 'Tautology mantiqiy buzish (\' OR \'1\'=\'1, OR 1=1)', regex: /('\s*(OR|AND)\s+('?\w+'?\s*=\s*'?\w+'|\d+\s*=\s*\d+))/i },
+  { name: 'Tautology mantiqiy buzish (\' OR \'1\'=\'1, OR 1=1)', regex: /('\s*(OR|AND)\s+('?[\w]+'?\s*=\s*'?[\w]+'?|\d+\s*=\s*\d+)|(\b(OR|AND)\s+['"]?[\w]+['"]?\s*=\s*['"]?[\w]+['"]?))/i },
   { name: 'SQL Izoh belgilari (-- yoki /* ... */)', regex: /(--|\/\*[\s\S]*?\*\/)/ },
   { name: 'Kombinatsiyalangan SQL buyruqlar (; DROP, ; DELETE, ; INSERT)', regex: /;\s*(DROP|DELETE|TRUNCATE|INSERT|UPDATE|ALTER|CREATE|EXEC|EXECUTE)\b/i },
   { name: 'UNION SELECT ma\'lumot o\'g\'irlash', regex: /\bUNION\s+(ALL\s+)?SELECT\b/i },
@@ -100,6 +101,7 @@ export function detectSqlInjection(input: string): { isMalicious: boolean; detec
   const detectedPatterns: string[] = [];
 
   for (const pattern of SQLI_PATTERNS) {
+    pattern.regex.lastIndex = 0;
     if (pattern.regex.test(input)) {
       detectedPatterns.push(pattern.name);
       pattern.regex.lastIndex = 0;

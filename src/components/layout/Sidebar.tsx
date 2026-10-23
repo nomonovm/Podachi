@@ -76,7 +76,7 @@ export const Sidebar: React.FC = () => {
         { id: 'users', label: 'A\'zolar & Huquqlar (RBAC)', icon: Users, roles: ['admin'] },
         { id: 'security-center', label: 'Kriptografiya Markazi', icon: KeyRound, roles: ['admin'] },
         { id: 'audit-logs', label: 'Audit Jurnali', icon: ShieldAlert, roles: ['admin'] },
-        { id: 'security-testing', label: 'Xavfsizlik Testlari', icon: TestTube2, badge: '9 Test', roles: ['admin'] },
+        { id: 'security-testing', label: 'Xavfsizlik Testlari', icon: TestTube2, badge: '12 Test', roles: ['admin'] },
       ],
     },
     {

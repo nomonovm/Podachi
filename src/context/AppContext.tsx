@@ -28,6 +28,46 @@ export interface ToastMessage {
   type: 'success' | 'error' | 'info';
 }
 
+const VALID_TABS: NavigationTab[] = [
+  'dashboard',
+  'livestock',
+  'catalog',
+  'movements',
+  'veterinary',
+  'feed',
+  'finance',
+  'payroll',
+  'reports',
+  'marketplace',
+  'my-listings',
+  'users',
+  'security-center',
+  'audit-logs',
+  'security-testing',
+  'farm-settings',
+  'farm-join',
+  'farm-create',
+];
+
+const getStoredTab = (): NavigationTab => {
+  if (typeof window === 'undefined') return 'dashboard';
+  try {
+    const hash = window.location.hash.replace('#', '').trim() as NavigationTab;
+    if (VALID_TABS.includes(hash)) {
+      return hash;
+    }
+    const sessionTab = sessionStorage.getItem('podachi_active_tab') as NavigationTab;
+    if (VALID_TABS.includes(sessionTab)) {
+      return sessionTab;
+    }
+    const localTab = localStorage.getItem('podachi_active_tab') as NavigationTab;
+    if (VALID_TABS.includes(localTab)) {
+      return localTab;
+    }
+  } catch {}
+  return 'dashboard';
+};
+
 interface AppContextType {
   state: PodachiState;
   currentUser: UserProfile;
@@ -55,13 +95,22 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<PodachiState>(backendEngine.getState());
-  const [activeTab, setActiveTabState] = useState<NavigationTab>('dashboard');
+  const [activeTab, setActiveTabState] = useState<NavigationTab>(getStoredTab);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const setActiveTab = (tab: NavigationTab) => {
     setActiveTabState(tab);
     setIsMobileMenuOpen(false);
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('podachi_active_tab', tab);
+        localStorage.setItem('podachi_active_tab', tab);
+        if (window.location.hash !== `#${tab}`) {
+          window.history.replaceState(null, '', `#${tab}`);
+        }
+      }
+    } catch {}
   };
 
   useEffect(() => {
@@ -83,6 +132,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     return unsubscribe;
   }, []);
+
+  // Sync hash changes & browser back/forward buttons
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const currentHash = window.location.hash.replace('#', '').trim() as NavigationTab;
+      if (currentHash !== activeTab && VALID_TABS.includes(activeTab)) {
+        window.history.replaceState(null, '', `#${activeTab}`);
+      }
+    }
+
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '').trim() as NavigationTab;
+      if (VALID_TABS.includes(hash)) {
+        setActiveTabState(hash);
+        try {
+          sessionStorage.setItem('podachi_active_tab', hash);
+          localStorage.setItem('podachi_active_tab', hash);
+        } catch {}
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [activeTab]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -120,6 +193,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const handleLogout = () => {
     backendEngine.logout();
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('podachi_active_tab');
+        localStorage.removeItem('podachi_active_tab');
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch {}
+    setActiveTabState('dashboard');
     showToast('Tizimdan muvaffaqiyatli chiqdingiz.', 'info');
   };
 

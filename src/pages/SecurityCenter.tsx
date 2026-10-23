@@ -652,6 +652,81 @@ export const SecurityCenter: React.FC = () => {
         </div>
       </div>
 
+      {/* SECTION 5: RATE LIMITING VS DISTRIBUTED ATTACKS ANALYSIS */}
+      <div className="bg-white dark:bg-[#0E1A16] rounded-3xl p-6 sm:p-8 border border-slate-200/90 dark:border-white/10 shadow-sm space-y-5">
+        <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+          <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          Kiberhujum Tahlili: Rate Limiting Yetarlimi?
+        </h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          IP Rate Limiting muhim vosita, lekin yagona himoya sifatida yetarli emas. Quyida taqqoslama tahlil keltirilgan.
+        </p>
+
+        {/* Comparison Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+            <thead className="bg-slate-50 dark:bg-[#14231E] border-b border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold uppercase">
+              <tr>
+                <th className="py-3 px-4">Xususiyat</th>
+                <th className="py-3 px-4 text-emerald-700 dark:text-emerald-400">✅ Rate Limiting To'xtatadi</th>
+                <th className="py-3 px-4 text-rose-700 dark:text-rose-400">❌ Rate Limiting To'xtata Olmaydi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+              <tr>
+                <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Hujum turi</td>
+                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">Bitta IP dan tezkor brute-force (skript orqali)</td>
+                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">Botnet: 10,000+ turli IP dan past tezlikda (parol spraying)</td>
+              </tr>
+              <tr className="bg-slate-50/50 dark:bg-white/[0.02]">
+                <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Tezlik</td>
+                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">Sekundiga 100+ urinish → 5 ta urinishdan keyin blok</td>
+                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">Har bir IP dan 1-2 urinish/soat → Rate limit ishga tushmaydi</td>
+              </tr>
+              <tr>
+                <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Misol</td>
+                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">Oddiy Python skript yoki Hydra dasturi</td>
+                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">Mirai botnet, credential stuffing (tarmoqdagi sizdirilgan bazalar)</td>
+              </tr>
+              <tr className="bg-slate-50/50 dark:bg-white/[0.02]">
+                <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Himoya natijasi</td>
+                <td className="py-3 px-4 text-emerald-700 dark:text-emerald-400 font-semibold">✅ To'liq to'xtatiladi</td>
+                <td className="py-3 px-4 text-rose-700 dark:text-rose-400 font-semibold">❌ Faqat rate limit bilan to'xtatib bo'lmaydi</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Defense in Depth Pyramid */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-forest-600 dark:text-forest-400" />
+            To'liq Himoya Strategiyasi: "Defence-in-Depth" Qatlamlari
+          </h3>
+          <div className="space-y-2">
+            {[
+              { layer: 'Qatlam 4 (Eng yuqori)', title: '2FA / MFA (Ikki faktorli autentifikatsiya)', desc: 'Parol fosh bo\'lsa ham, bir martalik kod (SMS/TOTP) bo\'lmasa tajovuzkor kira olmaydi.', color: 'border-forest-500 bg-forest-50 dark:bg-forest-950/60 dark:border-forest-700/60', badge: 'bg-forest-100 dark:bg-forest-900 text-forest-800 dark:text-forest-300' },
+              { layer: 'Qatlam 3', title: 'Kuchli Parol Siyosati (Password Policy)', desc: 'Kamida 8 belgi, bosh harf, raqam, maxsus belgi va keng tarqalgan 50+ zaif parollarni bloklash. Joriy ✅', color: 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 dark:border-emerald-700/60', badge: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300' },
+              { layer: 'Qatlam 2', title: 'CAPTCHA (Insoniy Tekshiruv)', desc: '3 ta xato kirishdan so\'ng matematik CAPTCHA paydo bo\'ladi. Bot va skriptlarni to\'xtatadi. Joriy ✅', color: 'border-amber-500 bg-amber-50 dark:bg-amber-950/60 dark:border-amber-700/60', badge: 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300' },
+              { layer: 'Qatlam 1 (Asos)', title: 'IP Rate Limiting (Tezlik Cheklash)', desc: 'Bitta IP manzilidan 5 ta xato urinish qayd etilganda 30 daqiqaga bloklash. Joriy ✅', color: 'border-slate-400 bg-slate-50 dark:bg-slate-950/60 dark:border-slate-700/60', badge: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300' },
+            ].map((item) => (
+              <div key={item.layer} className={`p-3.5 rounded-xl border ${item.color} flex items-start gap-3`}>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 mt-0.5 ${item.badge}`}>
+                  {item.layer}
+                </span>
+                <div>
+                  <strong className="text-xs text-slate-900 dark:text-white block">{item.title}</strong>
+                  <span className="text-[11px] text-slate-600 dark:text-slate-400">{item.desc}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+            💡 Tarqalgan botnet hujumlariga qarshi: Cloudflare WAF, GeoIP bloklash va anomaliya aniqlash tizimi (SIEM) kabi infratuzilma darajasidagi xizmatlar talab qilinadi.
+          </p>
+        </div>
+      </div>
+
     </div>
   );
 };

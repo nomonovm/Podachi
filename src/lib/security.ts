@@ -229,3 +229,96 @@ export function inspectSecurityPayload(
     sanitized: typeof data === 'string' ? sanitizeHtml(data) : sanitizeObject(data),
   };
 }
+
+// =====================================================================
+// PAROL KUCHI SIYOSATI (Password Strength Policy)
+// OWASP Password Guidelines asosida: murakkablik + keng tarqalgan parollar ro'yxati
+// =====================================================================
+
+const COMMON_PASSWORDS = new Set([
+  '123456', 'password', '123456789', '12345678', '12345', '1234567', '1234567890',
+  'qwerty', 'abc123', 'password1', 'admin', 'letmein', 'welcome', 'monkey', 'dragon',
+  'master', 'sunshine', 'princess', 'shadow', 'superman', 'michael', 'football',
+  'iloveyou', 'starwars', 'login', 'pass', 'test', 'guest', 'user', 'admin123',
+  'podachi', 'podachi2026', 'chorva', 'ferma', 'podachi123', '000000', '111111',
+  '123123', '654321', '666666', '888888', '999999', 'qwerty123', 'asdfgh',
+  'zxcvbn', 'password123', 'changeme', 'qazwsx', '1q2w3e', '1q2w3e4r',
+]);
+
+export interface PasswordStrengthResult {
+  score: number; // 0-4
+  label: 'Juda zaif' | 'Zaif' | "O'rtacha" | 'Kuchli' | 'Juda kuchli';
+  color: string; // Tailwind color class
+  errors: string[];
+  suggestions: string[];
+}
+
+/**
+ * Parol kuchini baholash va OWASP siyosatini tekshirish
+ * Score: 0=Juda zaif, 1=Zaif, 2=O'rtacha, 3=Kuchli, 4=Juda kuchli
+ */
+export function checkPasswordStrength(password: string): PasswordStrengthResult {
+  const errors: string[] = [];
+  const suggestions: string[] = [];
+  let score = 0;
+
+  if (!password) {
+    return { score: 0, label: 'Juda zaif', color: 'bg-rose-500', errors: ["Parol bo'sh bo'lishi mumkin emas."], suggestions: [] };
+  }
+
+  // Common password check
+  if (COMMON_PASSWORDS.has(password.toLowerCase())) {
+    errors.push("Bu juda keng tarqalgan parol. Boshqa parol tanlang.");
+    return { score: 0, label: 'Juda zaif', color: 'bg-rose-500', errors, suggestions: ["Noyob va murakkab parol ishlating."] };
+  }
+
+  // Min length
+  if (password.length < 8) {
+    errors.push(`Parol kamida 8 ta belgidan iborat bo'lishi kerak (hozir: ${password.length}).`);
+  } else {
+    score++;
+    if (password.length >= 12) score++;
+  }
+
+  // Uppercase letter
+  if (!/[A-Z]/.test(password)) {
+    errors.push("Kamida bitta bosh harf (A-Z) bo'lishi kerak.");
+    suggestions.push("Masalan: Birinchi harfni katta qiling yoki ichiga katta harf qo'shing.");
+  } else {
+    score++;
+  }
+
+  // Number
+  if (!/[0-9]/.test(password)) {
+    errors.push("Kamida bitta raqam (0-9) bo'lishi kerak.");
+    suggestions.push("Oxiriga raqam qo'shing, masalan: ...@7");
+  } else {
+    score++;
+  }
+
+  // Special character
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    errors.push("Kamida bitta maxsus belgi (!@#$%^&*) bo'lishi kerak.");
+    suggestions.push("Maxsus belgi qo'shing, masalan: ! yoki @");
+  } else {
+    score++;
+  }
+
+  // Clamp score to 0-4
+  score = Math.min(4, Math.max(0, score));
+
+  // Penalize if errors exist
+  if (errors.length > 0 && score > 1) score = 1;
+  else if (errors.length === 0 && score >= 4) score = 4;
+
+  const labels: PasswordStrengthResult['label'][] = ['Juda zaif', 'Zaif', "O'rtacha", 'Kuchli', 'Juda kuchli'];
+  const colors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-400', 'bg-emerald-500', 'bg-forest-600'];
+
+  return {
+    score,
+    label: labels[score],
+    color: colors[score],
+    errors,
+    suggestions,
+  };
+}

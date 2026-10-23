@@ -128,12 +128,12 @@ export const SecurityTesting: React.FC = () => {
     {
       id: 'test-j',
       code: 'TEST-J',
-      name: 'Brute-Force & Dictionary Hujumlaridan IP Darajasida Himoya (Rate Limiting)',
-      objective: 'Bitta qurilma IP manzilidan ketma-ket 5 marta xato login amalga oshirilganda, ushbu IP ni 30 daqiqaga bloklash (foydalanuvchi hisobini bloklamasdan)',
+      name: 'Yagona IP Manzilidan Tezkor Hujumlarni To\'xtatish (IP Rate Limiting)',
+      objective: 'Bitta IP manzilidan ketma-ket 5 marta noto\'g\'ri login urinishda ushbu IP ni 30 daqiqaga bloklash. Muhim: Bu faqat yagona IP hujumlarini to\'xtatadi; taqsimlangan botnet hujumlari (ko\'p IP dan past tezlikda) uchun qo\'shimcha CAPTCHA, parol siyosati va 2FA qatlamlari talab etiladi.',
       expected_outcome: '5-xato urinishdan so\'ng qurilma IP manzili 30 daqiqaga bloklanadi, so\'rovlar rad etiladi, auditga IP_BLOCKED_BRUTE_FORCE yoziladi va boshqa IP lardan kirish ochiq qoladi.',
       actual_outcome: 'Kutilmoqda (Test hali o\'tkazilmadi. Sinash uchun tugmani bosing)',
       status: 'PENDING',
-      remediation_advice: 'Client/Network rate limiting: IP bo\'yicha xato urinishlar 5 taga yetganda 30 daqiqalik lockout qo\'llaniladi. Boshqa qurilmadagi qonuniy foydalanuvchi tizimga kira oladi.',
+      remediation_advice: 'IP Rate Limiting yagona IP hujumlaridan himoya qiladi. To\'liq brute-force himoyasi uchun "Himoya Qatlamlari": 1) IP Rate Limiting (joriy) → 2) Matematik CAPTCHA (3+ urinishdan so\'ng) → 3) Kuchli parol siyosati → 4) 2FA/MFA. Tarqalgan botnet hujumlariga qarshi faqat servis darajasidagi Cloudflare/WAF yechimlari yetarli hisoblanadi.',
     },
     {
       id: 'test-k',

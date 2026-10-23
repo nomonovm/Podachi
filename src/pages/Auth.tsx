@@ -20,6 +20,7 @@ import {
   Moon,
 } from 'lucide-react';
 import { backendEngine } from '../lib/backendEngine';
+import { checkPasswordStrength } from '../lib/security';
 
 export const Auth: React.FC = () => {
   const { login, register, isDarkMode, toggleDarkMode, showToast } = useApp();
@@ -58,6 +59,32 @@ export const Auth: React.FC = () => {
   const [regFarmTitle, setRegFarmTitle] = useState('');
   const [regLocation, setRegLocation] = useState('Toshkent viloyati, Bo\'stonliq tumani');
   const [regError, setRegError] = useState<string | null>(null);
+
+  // CAPTCHA state (shown after 3 failed login attempts)
+  const [captchaQuestion, setCaptchaQuestion] = useState<{ a: number; b: number; op: string } | null>(null);
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+  const [loginAttemptCount, setLoginAttemptCount] = useState(0);
+
+  // Generate a new math CAPTCHA
+  const generateCaptcha = () => {
+    const ops = ['+', '×', '-'];
+    const op = ops[Math.floor(Math.random() * ops.length)];
+    let a: number, b: number;
+    if (op === '+') { a = Math.floor(Math.random() * 10) + 1; b = Math.floor(Math.random() * 10) + 1; }
+    else if (op === '×') { a = Math.floor(Math.random() * 9) + 2; b = Math.floor(Math.random() * 9) + 2; }
+    else { a = Math.floor(Math.random() * 15) + 5; b = Math.floor(Math.random() * 5) + 1; }
+    setCaptchaQuestion({ a, b, op });
+    setCaptchaInput('');
+    setCaptchaError(null);
+  };
+
+  // Show captcha when attempt count reaches 3
+  React.useEffect(() => {
+    if (loginAttemptCount === 3) {
+      generateCaptcha();
+    }
+  }, [loginAttemptCount]);
 
   // Quick fill demo credentials for university evaluators
   const demoAccounts = [
@@ -104,12 +131,30 @@ export const Auth: React.FC = () => {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-    setIsSubmitting(true);
+    setCaptchaError(null);
 
+    // CAPTCHA verification (if shown)
+    if (captchaQuestion && loginAttemptCount >= 3) {
+      const expected =
+        captchaQuestion.op === '+' ? captchaQuestion.a + captchaQuestion.b :
+        captchaQuestion.op === '×' ? captchaQuestion.a * captchaQuestion.b :
+        captchaQuestion.a - captchaQuestion.b;
+      if (parseInt(captchaInput, 10) !== expected) {
+        setCaptchaError("Javob noto'g'ri. Iltimos, qayta hisoblang.");
+        generateCaptcha();
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
     const res = await login(loginEmail, loginPassword, rememberMe);
     refreshRateLimit();
     if (!res.success) {
       setLoginError(res.error || "Login yoki parol noto'g'ri.");
+      setLoginAttemptCount(prev => prev + 1);
+    } else {
+      setLoginAttemptCount(0);
+      setCaptchaQuestion(null);
     }
     setIsSubmitting(false);
   };
@@ -301,6 +346,40 @@ export const Auth: React.FC = () => {
                   </label>
                 </div>
 
+                {/* CAPTCHA Widget: shown after 3 failed attempts */}
+                {captchaQuestion && loginAttemptCount >= 3 && !rateLimitStatus.isLocked && (
+                  <div className="p-3.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/60 rounded-xl space-y-2.5">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
+                      <ShieldAlert className="w-4 h-4 shrink-0" />
+                      <span>Insoniy Tekshiruv (CAPTCHA)</span>
+                    </div>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                      Bir nechta muvaffaqiyatsiz urinish aniqlandi. Iltimos, quyidagi misolni yeching:
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg px-4 py-2.5 text-center font-mono text-lg font-black text-slate-900 dark:text-white select-none tracking-widest">
+                        {captchaQuestion.a} {captchaQuestion.op} {captchaQuestion.b} = ?
+                      </div>
+                      <input
+                        type="number"
+                        placeholder="Javob"
+                        value={captchaInput}
+                        onChange={e => setCaptchaInput(e.target.value)}
+                        className="w-24 text-center px-3 py-2.5 bg-white dark:bg-slate-950 border border-amber-400 dark:border-amber-600 rounded-lg text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    {captchaError && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        {captchaError}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-amber-600 dark:text-amber-500">
+                      * Ishlab chiqarish muhitida: Cloudflare Turnstile server tomonida tekshiriladi.
+                    </p>
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={isSubmitting || rateLimitStatus.isLocked}
@@ -391,29 +470,74 @@ export const Auth: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Parol</label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Kamida 6 belgi"
-                      value={regPassword}
-                      onChange={e => setRegPassword(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-forest-600 dark:focus:border-forest-500"
-                    />
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Parol</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Kamida 8 belgi"
+                        value={regPassword}
+                        onChange={e => setRegPassword(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-forest-600 dark:focus:border-forest-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Tasdiqlash</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Parolni qaytaring"
+                        value={regConfirmPassword}
+                        onChange={e => setRegConfirmPassword(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-forest-600 dark:focus:border-forest-500"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Tasdiqlash</label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Parolni qaytaring"
-                      value={regConfirmPassword}
-                      onChange={e => setRegConfirmPassword(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-forest-600 dark:focus:border-forest-500"
-                    />
-                  </div>
+                  {/* Password Strength Meter */}
+                  {regPassword.length > 0 && (() => {
+                    const strength = checkPasswordStrength(regPassword);
+                    const segments = [0, 1, 2, 3];
+                    return (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-1">
+                          {segments.map(i => (
+                            <div
+                              key={i}
+                              className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                                i <= strength.score - 1 ? strength.color : 'bg-slate-200 dark:bg-slate-800'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] font-bold ${
+                            strength.score <= 1 ? 'text-rose-600 dark:text-rose-400' :
+                            strength.score === 2 ? 'text-amber-600 dark:text-amber-400' :
+                            'text-emerald-600 dark:text-emerald-400'
+                          }`}>
+                            Parol kuchi: {strength.label}
+                          </span>
+                          {strength.errors.length > 0 && (
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                              {strength.errors.length} talab bajarilmagan
+                            </span>
+                          )}
+                        </div>
+                        {strength.errors.length > 0 && (
+                          <div className="text-[10px] text-rose-600 dark:text-rose-400 space-y-0.5">
+                            {strength.errors.slice(0, 2).map((err, i) => (
+                              <div key={i} className="flex items-start gap-1">
+                                <span className="mt-0.5 shrink-0">•</span>
+                                <span>{err}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Section 3 Selection: Create vs Join */}

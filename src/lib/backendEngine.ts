@@ -55,6 +55,7 @@ import {
   detectXss,
   detectSqlInjection,
   buildParameterizedQuery,
+  checkPasswordStrength,
 } from './security';
 
 export const UNIVERSAL_ANIMAL_FEED_NORMS: Record<string, AnimalDailyFeedNorm> = {
@@ -690,8 +691,12 @@ export class PodachiBackendEngine {
     if (!cleanData.email || !cleanData.email.includes('@')) {
       throw new Error("To'g'ri email manzilini kiriting.");
     }
-    if (!cleanData.password || cleanData.password.length < 6) {
-      throw new Error("Parol kamida 6 ta belgidan iborat bo'lishi kerak.");
+    if (!cleanData.password) {
+      throw new Error("Parol kiritilmadi.");
+    }
+    const pwStrength = checkPasswordStrength(cleanData.password);
+    if (pwStrength.score < 2 || pwStrength.errors.length > 0) {
+      throw new Error(pwStrength.errors[0] || "Parol yetarlicha kuchli emas. Kamida 8 ta belgi, bosh harf, raqam va maxsus belgi kiriting.");
     }
 
     const cleanEmail = cleanData.email.trim().toLowerCase();

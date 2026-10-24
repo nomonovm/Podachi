@@ -178,6 +178,7 @@ export const Dashboard: React.FC = () => {
           icon={Layers}
           badge={`${groups.length} ta guruh`}
           badgeVariant="forest"
+          onClick={() => setActiveTab('livestock')}
         />
 
         <StatCard
@@ -187,6 +188,7 @@ export const Dashboard: React.FC = () => {
           icon={ShoppingBag}
           badge={totalReservedInMarket > 0 ? "Aktiv band" : "Band yo'q"}
           badgeVariant={totalReservedInMarket > 0 ? "amber" : "slate"}
+          onClick={() => setActiveTab('marketplace')}
         />
 
         {currentRole !== 'viewer' ? (
@@ -198,6 +200,7 @@ export const Dashboard: React.FC = () => {
               icon={Coins}
               badge={farmBalance >= 0 ? "Likvid hisob" : "Qarz"}
               badgeVariant={farmBalance >= 0 ? "emerald" : "rose"}
+              onClick={() => setActiveTab('finance')}
             />
 
             <StatCard
@@ -207,6 +210,7 @@ export const Dashboard: React.FC = () => {
               icon={ArrowUpRight}
               badge="Kirim"
               badgeVariant="emerald"
+              onClick={() => setActiveTab('finance')}
             />
 
             <StatCard
@@ -216,6 +220,7 @@ export const Dashboard: React.FC = () => {
               icon={Receipt}
               badge={financialResult >= 0 ? "Ijobiy balans" : "Zarar"}
               badgeVariant={financialResult >= 0 ? "emerald" : "rose"}
+              onClick={() => setActiveTab('reports')}
             />
           </>
         ) : (
@@ -227,6 +232,7 @@ export const Dashboard: React.FC = () => {
               icon={Wheat}
               badge="Zaxira me'yorda"
               badgeVariant="emerald"
+              onClick={() => setActiveTab('feed')}
             />
 
             <StatCard
@@ -236,6 +242,7 @@ export const Dashboard: React.FC = () => {
               icon={Stethoscope}
               badge="Profilaktika"
               badgeVariant="forest"
+              onClick={() => setActiveTab('veterinary')}
             />
           </>
         )}

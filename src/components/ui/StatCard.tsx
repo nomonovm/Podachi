@@ -9,6 +9,7 @@ interface StatCardProps {
   badge?: string;
   badgeVariant?: 'forest' | 'emerald' | 'amber' | 'rose' | 'slate';
   accentColor?: string;
+  onClick?: () => void;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -18,6 +19,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   icon: Icon,
   badge,
   badgeVariant = 'forest',
+  onClick,
 }) => {
   const badgeClasses: Record<string, string> = {
     forest: 'bg-forest-50 dark:bg-forest-950/80 text-forest-700 dark:text-forest-300 border-forest-200 dark:border-forest-800',
@@ -28,7 +30,10 @@ export const StatCard: React.FC<StatCardProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-[#0E1A16] rounded-2xl p-5 border border-slate-200/80 dark:border-forest-900/40 shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden group">
+    <div
+      onClick={onClick}
+      className={`bg-white dark:bg-[#0E1A16] rounded-2xl p-5 border border-slate-200/80 dark:border-forest-900/40 shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden group${onClick ? ' cursor-pointer hover:border-forest-400 dark:hover:border-forest-600 active:scale-[0.98]' : ''}`}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">{title}</p>

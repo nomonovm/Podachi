@@ -93,21 +93,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Demo rejimi: "Chiqish" bosilmagan bo'lsa, sahifa yuklanishidan OLDIN sinxron auto-login
-// Bu birinchi renderda isAuthenticated=true bo'lishini ta'minlaydi (oq ekran yo'q)
-const initDemoState = (): PodachiState => {
-  const wasLoggedOut = sessionStorage.getItem('podachi_logged_out');
-  if (!wasLoggedOut) {
-    const current = backendEngine.getState();
-    if (!current.isAuthenticated) {
-      try { backendEngine.login('admin@podachi.uz', 'podachi2026', false); } catch {}
-    }
-  }
-  return backendEngine.getState();
-};
-
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<PodachiState>(initDemoState);
+  const [state, setState] = useState<PodachiState>(backendEngine.getState());
   const [activeTab, setActiveTabState] = useState<NavigationTab>(getStoredTab);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);

@@ -152,26 +152,33 @@ const MainContent: React.FC = () => {
 const AppShell: React.FC = () => {
   const { isAuthenticated } = useApp();
 
-  // Auto-login as admin on first visit (demo/presentation mode)
-  // Login page is only shown after the user explicitly clicks "Chiqish" (logout)
-  React.useEffect(() => {
-    if (!isAuthenticated) {
-      const wasExplicitlyLoggedOut = sessionStorage.getItem('podachi_logged_out');
-      if (!wasExplicitlyLoggedOut) {
-        try {
-          backendEngine.login('admin@podachi.uz', 'podachi2026', false);
-        } catch {}
-      }
-    }
-  }, [isAuthenticated]);
+  // Demo/taqdimot rejimi:
+  // Foydalanuvchi "Chiqish" tugmasini bosmagan bo'lsa, login sahifasini
+  // ko'rsatmasdan, to'g'ridan-to'g'ri admin sifatida tizimga kiritiladi.
+  // Loyiha to'liq yakunlangach bu blok o'chiriladi va login majburiy bo'ladi.
+  const wasExplicitlyLoggedOut = sessionStorage.getItem('podachi_logged_out');
 
-  if (!isAuthenticated) {
+  React.useEffect(() => {
+    if (!isAuthenticated && !wasExplicitlyLoggedOut) {
+      try {
+        backendEngine.login('admin@podachi.uz', 'podachi2026', false);
+      } catch {}
+    }
+  }, [isAuthenticated, wasExplicitlyLoggedOut]);
+
+  // Login sahifasini faqat foydalanuvchi o'zi "Chiqish" bosganida ko'rsatish
+  if (!isAuthenticated && wasExplicitlyLoggedOut) {
     return (
       <>
         <Auth />
         <ToastContainer />
       </>
     );
+  }
+
+  // Agar hali auto-login bajarilmagan bo'lsa (birinchi render) — bo'sh ekran
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (

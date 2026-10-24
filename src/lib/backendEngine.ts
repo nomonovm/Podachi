@@ -189,10 +189,15 @@ export interface PodachiState {
 }
 
 export function getInitialState(): PodachiState {
+  const isExplicitlyLoggedOut = typeof window !== 'undefined' && (
+    localStorage.getItem('podachi_logged_out') === 'true' ||
+    sessionStorage.getItem('podachi_logged_out') === 'true'
+  );
+
   return {
     users: INITIAL_USERS,
     currentUser: INITIAL_USERS[0], // Alisher Qodirov (Admin)
-    isAuthenticated: false,
+    isAuthenticated: !isExplicitlyLoggedOut,
     isDarkMode: false,
     farms: INITIAL_FARMS,
     currentFarmId: INITIAL_FARMS[0].id,
@@ -230,13 +235,20 @@ export function loadState(): PodachiState {
     if (!raw) return getInitialState();
     const parsed = JSON.parse(raw);
 
-    const rememberMe = typeof window !== 'undefined' && localStorage.getItem('podachi_remember_me') === 'true';
-    const sessionAuth = typeof window !== 'undefined' && sessionStorage.getItem('podachi_session_auth') === 'true';
+    const isExplicitlyLoggedOut = (
+      localStorage.getItem('podachi_logged_out') === 'true' ||
+      sessionStorage.getItem('podachi_logged_out') === 'true'
+    );
 
-    if (!rememberMe && !sessionAuth) {
+    // Loyiha qurilish davrida login talabini avtomatik chetlab o'tish:
+    // Faqatgina foydalanuvchi o'z xohishi bilan "Chiqish" (Logout) bosgandagina login oynasi ko'rsatiladi.
+    if (isExplicitlyLoggedOut) {
       parsed.isAuthenticated = false;
     } else {
       parsed.isAuthenticated = true;
+      if (!parsed.currentUser) {
+        parsed.currentUser = INITIAL_USERS[0];
+      }
     }
 
     let stateWasRepaired = false;
@@ -408,11 +420,13 @@ export class PodachiBackendEngine {
   }
 
   public resetToDefault(): void {
-    this.state = getInitialState();
     if (typeof window !== 'undefined') {
       localStorage.removeItem('podachi_remember_me');
       sessionStorage.removeItem('podachi_session_auth');
+      localStorage.removeItem('podachi_logged_out');
+      sessionStorage.removeItem('podachi_logged_out');
     }
+    this.state = getInitialState();
     this.resetAllIpRateLimits();
     this.notify();
   }
@@ -653,6 +667,8 @@ export class PodachiBackendEngine {
     this.state.isAuthenticated = true;
 
     if (typeof window !== 'undefined') {
+      localStorage.removeItem('podachi_logged_out');
+      sessionStorage.removeItem('podachi_logged_out');
       if (rememberMe) {
         localStorage.setItem('podachi_remember_me', 'true');
         sessionStorage.removeItem('podachi_session_auth');
@@ -718,6 +734,8 @@ export class PodachiBackendEngine {
     this.state.isAuthenticated = true;
 
     if (typeof window !== 'undefined') {
+      localStorage.removeItem('podachi_logged_out');
+      sessionStorage.removeItem('podachi_logged_out');
       if (rememberMe) {
         localStorage.setItem('podachi_remember_me', 'true');
         sessionStorage.removeItem('podachi_session_auth');
@@ -799,6 +817,8 @@ export class PodachiBackendEngine {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('podachi_remember_me');
       sessionStorage.removeItem('podachi_session_auth');
+      localStorage.setItem('podachi_logged_out', 'true');
+      sessionStorage.setItem('podachi_logged_out', 'true');
     }
     this.notify();
   }

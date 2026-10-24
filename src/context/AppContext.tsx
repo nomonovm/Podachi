@@ -94,7 +94,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<PodachiState>(backendEngine.getState());
+  const [state, setState] = useState<PodachiState>(() => backendEngine.getState());
   const [activeTab, setActiveTabState] = useState<NavigationTab>(getStoredTab);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -140,26 +140,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (currentHash !== activeTab && VALID_TABS.includes(activeTab)) {
         window.history.replaceState(null, '', `#${activeTab}`);
       }
+
+      const handleHashChange = () => {
+        const newHash = window.location.hash.replace('#', '').trim() as NavigationTab;
+        if (VALID_TABS.includes(newHash) && newHash !== activeTab) {
+          setActiveTabState(newHash);
+        }
+      };
+
+      window.addEventListener('hashchange', handleHashChange);
+      return () => window.removeEventListener('hashchange', handleHashChange);
     }
-
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '').trim() as NavigationTab;
-      if (VALID_TABS.includes(hash)) {
-        setActiveTabState(hash);
-        try {
-          sessionStorage.setItem('podachi_active_tab', hash);
-          localStorage.setItem('podachi_active_tab', hash);
-        } catch {}
-      }
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
   }, [activeTab]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts(prev => [...prev, { id, message, type }]);
+
     setTimeout(() => {
       removeToast(id);
     }, 4500);
@@ -172,6 +169,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const handleLogin = async (email: string, password: string, rememberMe: boolean = false): Promise<{ success: boolean; error?: string }> => {
     try {
       const user = backendEngine.login(email, password, rememberMe);
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('podachi_logged_out');
+          localStorage.removeItem('podachi_logged_out');
+        }
+      } catch {}
       showToast(`Xush kelibsiz, ${user.full_name}!`, 'success');
       return { success: true };
     } catch (e: any) {
@@ -183,6 +186,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const handleRegister = async (data: RegisterData, rememberMe: boolean = false): Promise<{ success: boolean; error?: string }> => {
     try {
       const user = backendEngine.register(data, rememberMe);
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('podachi_logged_out');
+          localStorage.removeItem('podachi_logged_out');
+        }
+      } catch {}
       showToast(`Tabriklaymiz! Hisobingiz yaratildi, ${user.full_name}!`, 'success');
       return { success: true };
     } catch (e: any) {
@@ -197,8 +206,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('podachi_active_tab');
         localStorage.removeItem('podachi_active_tab');
-        // Mark explicit logout so auto-login doesn't re-trigger
         sessionStorage.setItem('podachi_logged_out', 'true');
+        localStorage.setItem('podachi_logged_out', 'true');
         window.history.replaceState(null, '', window.location.pathname);
       }
     } catch {}

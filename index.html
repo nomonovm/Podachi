@@ -9,11 +9,24 @@
     <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <title>Podachi — Chorvachilik Boshqaruv & Bozor Platformasi</title>
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('podachi_state_v1');
+          if (raw) {
+            var state = JSON.parse(raw);
+            if (state && state.isDarkMode) {
+              document.documentElement.classList.add('dark');
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-[#F8FAF8] text-slate-900 antialiased font-sans">
+  <body class="bg-[#F8FAF8] dark:bg-[#070E0B] text-slate-900 dark:text-slate-100 antialiased font-sans">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

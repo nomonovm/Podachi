@@ -5,7 +5,6 @@ import { Sidebar } from './components/layout/Sidebar';
 import { BottomNav } from './components/layout/BottomNav';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { ToastContainer } from './components/ui/Toast';
-import { backendEngine } from './lib/backendEngine';
 
 // Auth Screen
 import { Auth } from './pages/Auth';
@@ -152,19 +151,8 @@ const MainContent: React.FC = () => {
 const AppShell: React.FC = () => {
   const { isAuthenticated } = useApp();
 
-  // Auto-login as admin on first visit (demo/presentation mode)
-  // Login page is only shown after the user explicitly clicks "Chiqish" (logout)
-  React.useEffect(() => {
-    if (!isAuthenticated) {
-      const wasExplicitlyLoggedOut = sessionStorage.getItem('podachi_logged_out');
-      if (!wasExplicitlyLoggedOut) {
-        try {
-          backendEngine.login('admin@podachi.uz', 'podachi2026', false);
-        } catch {}
-      }
-    }
-  }, [isAuthenticated]);
-
+  // Login oynasi faqat foydalanuvchi "Chiqish" (logout) bosgandagina ko'rsatiladi.
+  // Dastlabki kirish va sahifa yangilanishida sinxron admin rejimida yuklanadi.
   if (!isAuthenticated) {
     return (
       <>

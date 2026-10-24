@@ -5,7 +5,6 @@ import { Sidebar } from './components/layout/Sidebar';
 import { BottomNav } from './components/layout/BottomNav';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { ToastContainer } from './components/ui/Toast';
-import { backendEngine } from './lib/backendEngine';
 
 // Auth Screen
 import { Auth } from './pages/Auth';
@@ -152,33 +151,15 @@ const MainContent: React.FC = () => {
 const AppShell: React.FC = () => {
   const { isAuthenticated } = useApp();
 
-  // Demo/taqdimot rejimi:
-  // Foydalanuvchi "Chiqish" tugmasini bosmagan bo'lsa, login sahifasini
-  // ko'rsatmasdan, to'g'ridan-to'g'ri admin sifatida tizimga kiritiladi.
-  // Loyiha to'liq yakunlangach bu blok o'chiriladi va login majburiy bo'ladi.
-  const wasExplicitlyLoggedOut = sessionStorage.getItem('podachi_logged_out');
-
-  React.useEffect(() => {
-    if (!isAuthenticated && !wasExplicitlyLoggedOut) {
-      try {
-        backendEngine.login('admin@podachi.uz', 'podachi2026', false);
-      } catch {}
-    }
-  }, [isAuthenticated, wasExplicitlyLoggedOut]);
-
-  // Login sahifasini faqat foydalanuvchi o'zi "Chiqish" bosganida ko'rsatish
-  if (!isAuthenticated && wasExplicitlyLoggedOut) {
+  // Login sahifasini faqat foydalanuvchi "Chiqish" bosganida ko'rsatish.
+  // Aks holda AppContext initDemoState() orqali sinxron auto-login qilingan bo'ladi.
+  if (!isAuthenticated) {
     return (
       <>
         <Auth />
         <ToastContainer />
       </>
     );
-  }
-
-  // Agar hali auto-login bajarilmagan bo'lsa (birinchi render) — bo'sh ekran
-  if (!isAuthenticated) {
-    return null;
   }
 
   return (

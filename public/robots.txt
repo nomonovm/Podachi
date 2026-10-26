@@ -1,10 +1,11 @@
 # PODACHI Platform Robots.txt
-# AI tahlilchilari va botlar uchun ruxsat berilgan (Vaqtincha ochiq rejim)
+# Chatbotlar va AI qidiruv botlari uchun FAQAT O'QISH (READ-ONLY) ruxsati berilgan.
+# Har qanday ma'lumotlarni o'zgartirish, kiritish yoki o'chirish (POST/PUT/DELETE) qat'iyan taqiqlanadi.
 
 User-agent: *
 Allow: /
 
-# Maxsus AI modellar va qidiruv botlari
+# Maxsus AI modellar va qidiruv botlari (Faqat o'qish va tahlil qilish uchun)
 User-agent: GPTBot
 Allow: /
 

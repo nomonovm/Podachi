@@ -1,0 +1,42 @@
+# PODACHI Platform Robots.txt
+# AI tahlilchilari va botlar uchun ruxsat berilgan (Vaqtincha ochiq rejim)
+
+User-agent: *
+Allow: /
+
+# Maxsus AI modellar va qidiruv botlari
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: FacebookBot
+Allow: /

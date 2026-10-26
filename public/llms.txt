@@ -1,0 +1,102 @@
+# PODACHI — Chorvachilik Boshqaruv & Bozor Milliy Raqamli Platformasi
+> Ushbu hujjat AI modellar (ChatGPT, Claude, Perplexity va boshqa tahlilchi botlar) uchun platforma arxitekturasi, modullari va to'liq ichki ma'lumotlarini taqdim etadi.
+
+## 1. Loyiha Haqida Umumiy Ma'lumot
+- **Nomi**: PODACHI
+- **Tavsifi**: O'zbekiston chorvadorlari, fermer xo'jaliklari va agrobizneslar uchun kompleks podalar hisobi, veterinariya nazorati, ozuqa balansi, moliyaviy tahlil va chorva savdosi (Marketplace) platformasi.
+- **Asosiy ferma**: "Baraka Chorva Ferma" (Toshkent viloyati, Bo'stonliq tumani)
+- **Rahbar / Admin**: Alisher Qodirov (admin@podachi.uz)
+
+---
+
+## 2. Boshqaruv Paneli (Dashboard Asosiy Ko'rsatkichlari)
+- **Jami bosh chorva soni**: 142 bosh (Qoramol: 48 bosh, Qo'y-echki: 86 bosh, Yilqi: 8 bosh)
+- **Faol sut sog'imi**: Kunlik 620 litr (O'rtacha 20 litr/sigir)
+- **Sut realizatsiya narxi**: 5,500 so'm / litr
+- **Kunlik ozuqa sarfi**: 18.4 bog'lam beda, 165 kg aralash yem, 0.45 tonna silos
+- **Oylik sof tushum**: ~102,300,000 so'm
+- **Oylik xarajatlar**: ~64,800,000 so'm (Ozuqa: 42 mln, Maosh: 16.5 mln, Vet: 6.3 mln)
+- **Oylik sof foyda (EBITDA)**: ~37,500,000 so'm
+
+---
+
+## 3. Chorva Boshqaruvi & Poda Guruhlari (Livestock)
+1. **Sog'in sigirlar guruhi (Golshtin zoti)**:
+   - Soni: 24 bosh
+   - Mahsuldorlik: Yuqori (kunlik 22-26 litr)
+   - Holati: Sog'lom, laktatsiyaning 2-bosqichida
+2. **Bo'rdoqi buqalar guruhi (Qora-ola va Shvis zotlari)**:
+   - Soni: 16 bosh
+   - O'rtacha vazni: 480-550 kg
+   - Maqsadi: Go'sht yo'nalishida boqish
+3. **Yosh buzoqlar guruhi (0-6 oylik)**:
+   - Soni: 8 bosh
+   - Ratsion: Maxsus sut va start yem
+4. **Hisor qo'ylari guruhi**:
+   - Soni: 86 bosh (Ona qo'ylar: 60, Qo'chqorlar: 6, Qo'zilar: 20)
+   - O'rtacha vazni: Qo'chqorlar 110-135 kg, Ona qo'ylar 75-90 kg
+5. **Qorabayir zotli otlar**:
+   - Soni: 8 bosh (Ishchi va naslli otlar)
+
+---
+
+## 4. Veterinariya & Emlash Jurnali (Veterinary)
+- **Bosh veterinar**: Dr. Jamshid Zokirov (vet@podachi.uz)
+- **O'tkazilgan va rejalashtirilgan muolajalar**:
+  - Oqsil (Yashur) kasalligiga qarshi emlash: 100% qamrov (Status: Bajarilgan)
+  - Qorason (Emkar) profilaktikasi: 48 bosh qoramol (Status: Bajarilgan)
+  - Kuydirgi (Sibirskaya yazva) emlash: Rejaviy (Status: Nazoratda)
+  - Parazitlarga qarshi degelmintizatsiya (Alben, Ivermek): O'tkazilgan
+- **Karantin bo'limi**: Hozirda kasallangan yoki izolyatsiyalangan chorva mavjud emas.
+
+---
+
+## 5. Ozuqa Boshqaruvi & Zaxira Balansi (Feed Management)
+- **Beda (Presslangan bog'lam)**:
+  - Zaxirada: 1,450 bog'lam
+  - Kunlik sarf: ~18.4 bog'lam
+  - Zaxira yetishi: ~78 kunlik xavfsiz zaxira
+- **Aralash yem (Kombikorm - arpa, makkajo'xori, shrot)**:
+  - Zaxirada: 8,200 kg
+  - Kunlik sarf: ~165 kg
+  - Zaxira yetishi: ~50 kunlik zaxira
+- **Makkajo'xori silosi**:
+  - Zaxirada: 25 tonna
+  - Kunlik sarf: 0.45 tonna
+  - Zaxira yetishi: ~55 kunlik zaxira
+
+---
+
+## 6. Moliya, Ish Haqi & Balans (Finance & Payroll)
+- **Asosiy daromad manbalari**:
+  - Xom sut realizatsiyasi (shartnoma asosida sut zavodiga)
+  - Bo'rdoqi qoramol va naslli hisor qo'ylari savdosi
+  - Go'sht va tirik vazndagi savdo
+- **Xodimlar shtati va oylik ish haqi (Payroll)**:
+  - Ferma rahbari (Alisher Qodirov): 12,000,000 so'm
+  - Bosh menejer (Bobur Rustamov): 9,000,000 so'm
+  - Bosh veterinar (Dr. Jamshid Zokirov): 7,500,000 so'm
+  - Katta chorvadorlar / Cho'ponlar (4 kishi): 4,500,000 so'mdan = 18,000,000 so'm
+  - Jami oylik maosh fondi: 46,500,000 so'm
+
+---
+
+## 7. Chorva Bozori (Marketplace Savdo Maydoni)
+- **Faol sotuv e'lonlari**:
+  1. *Zotdor Golshtin sog'in sigirlar (Bo'g'oz, 2-qorin)* — 28,000,000 so'm / bosh
+  2. *Hisor zotli nasldor qo'chqorlar (120+ kg)* — 6,500,000 so'm / bosh
+  3. *Bo'rdoqi semirtirilgan qora-ola buqalar* — 22,000,000 so'm / bosh
+  4. *Sifatli tog' bedasi (2026-yil 1-o'rim, press)* — 32,000 so'm / bog'lam
+- **Savdo xavfsizligi**: Ikki tomonlama tasdiqlash, atomik rezervatsiya va vositachisiz to'g'ridan-to'g'ri bitimlar.
+
+---
+
+## 8. Kiberxavfsizlik & Arxitektura (Security & Architecture)
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Vite
+- **Ma'lumotlar bazasi va xavfsizlik**: PostgreSQL RBAC (Role-Based Access Control) va RLS (Row-Level Security)
+- **Xavfsizlik qatlamlari (Defence-in-Depth)**:
+  - 1-qatlam: IP Rate Limiting (bitta IP dan 5 ta xato login bo'lsa 30 daqiqa bloklash)
+  - 2-qatlam: Matematik CAPTCHA insoniy tekshiruvi (3 ta xato kirishdan so'ng)
+  - 3-qatlam: OWASP talablariga mos kuchli parol siyosati (8+ belgi, bosh harf, raqam, maxsus belgi, zaif parollarni taqiqlash)
+  - 4-qatlam: XSS va SQL Injection sanitizatsiyasi (`sanitizeHtml`, parametrlangan so'rovlar)
+  - 5-qatlam: Audit loglari (barcha muhim tizim amallari, kirishlar va o'zgarishlar jurnalga yoziladi)
